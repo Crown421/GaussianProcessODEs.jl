@@ -1,0 +1,12 @@
+name = "npODEs"
+uuid = "140fb952-27fb-48f0-a923-9fc0a82a2f4d"
+authors = ["Steffen <steffen@robots.ox.ac.uk>"]
+version = "0.1.0"
+
+[deps]
+DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
+Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+NLopt = "76087f3c-5699-56af-9a33-bf431cd00edd"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+VectorizedRoutines = "0e69188a-a5d4-5622-b4e4-a72373136fc5"
