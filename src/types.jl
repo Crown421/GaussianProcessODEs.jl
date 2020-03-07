@@ -85,17 +85,18 @@ end
 
 struct npODE{T<:kernel}
     U::Array{Array{Float64, 1}, 1}
-    vU::Array{Float64,1}
-    kernel::T
+    Kx::Function
+    KiU::Array{Float64,1}
     
     function npODE{T}(U, kernel) where T<:kernel
         vU = reduce(vcat, U)
-        new{T}(U, vU, kernel)
+        KiU = kernel.Kchol \ vU
+        new{T}(U, kernel.Kx, KiU)
     end
 
-    function npODE{T}(vU::Array{Float64, 1}, kernel) where T<:kernel
-        new{T}([zeros(2), zeros(2)], vU, kernel)
-    end
+    # function npODE{T}(vU::Array{Float64, 1}, kernel) where T<:kernel
+    #     new{T}([zeros(2), zeros(2)], vU, kernel)
+    # end
 end
 
 npODE(U, kernel::T) where T<:kernel = npODE{T}(U, kernel)

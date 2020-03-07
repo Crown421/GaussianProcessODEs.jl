@@ -15,8 +15,8 @@ end
 
 # # this gives us the vector field x^dot = f(x) = evalGPODE(x[, npODE])
 function evalgpode(x, npODE)
-    Kx = npODE.kernel.Kx(x)
-    return Kx * (npODE.kernel.Kchol.U \ (npODE.kernel.Kchol.L \ npODE.vU))
+    Kx = npODE.Kx(x)
+    return Kx * npODE.KiU
 end
 
 function gpode!(dx, x, npODE, t)
