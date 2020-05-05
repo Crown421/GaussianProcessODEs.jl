@@ -57,41 +57,42 @@ end
 
 mutable struct kernel{T<:gridtype, S<:kerneltype}
     Kchol::Cholesky{Float64,Array{Float64,2}}
-    Kx::Function
     grid::T
     kernel::S
 
-    function kernel{T, S}(𝜃, grid::T, kernelT::S) where {T <: gridtype, S <:kerneltype }
-        pKernel(z1, z2) = kerf(z1, z2, 𝜃, kernelT)
-        K = reduce(vcat, [reduce(hcat, [pKernel(grid.Z[i], grid.Z[j]) for j in 1:length(grid.Z)]) for i in 1:length(grid.Z)])
-        Kchol = LinearAlgebra.cholesky(K)
-        Kx(x) = reduce(hcat, pKernel.(Ref(x), grid.Z))
+    function kernel{T, S}(grid::T, kernelT::S) where {T <: gridtype, S <:kerneltype }
+        tmp = pairwise((z1, z2) -> matrixkernelfunction(z1, z2, kernelT), grid.Z,  Symmetric)
+        K = symblockreduce(tmp)
 
-        new{T,S}(Kchol, Kx, grid, kernelT)
+        # TODO parametrize, check, test
+        Id = Matrix{Float64}(LinearAlgebra.I, size(K)... ) * 0.04
+        # K = K + Id
+        Kchol = LinearAlgebra.cholesky(K)
+
+        new{T,S}(Kchol, grid, kernelT)
     end
 end
-
-function kernel(𝜃, grid::T; kernelfun::S = expKernel) where {T<: gridtype, S <: kerneltype}
-    return kernel{T,S}(𝜃, grid, kernelfun)
+function kernel(grid::T, kernelfun::S) where {T<: gridtype, S <: kerneltype}
+    return kernel{T,S}(grid, kernelfun)
 end
 
-function updatekernel!(𝜃, ker)
-    pKernel(z1, z2) = kerf(z1, z2, 𝜃, ker.kernel)
-    K = reduce(vcat, [reduce(hcat, [pKernel(ker.grid.Z[i], ker.grid.Z[j]) for j in 1:length(ker.grid.Z)]) for i in 1:length(ker.grid.Z)])
-    ker.Kchol = LinearAlgebra.cholesky(K)
-    ker.Kx = x -> reduce(vcat, pKernel.(Ref(x), ker.grid.Z))
-end
+# function updatekernel!(𝜃, ker)
+#     pKernel(z1, z2) = kerf(z1, z2, 𝜃, ker.kernel)
+#     K = reduce(vcat, [reduce(hcat, [pKernel(ker.grid.Z[i], ker.grid.Z[j]) for j in 1:length(ker.grid.Z)]) for i in 1:length(ker.grid.Z)])
+#     ker.Kchol = LinearAlgebra.cholesky(K)
+#     ker.Kx = x -> reduce(vcat, pKernel.(Ref(x), ker.grid.Z))
+# end
 
 
 struct npODE{T<:kernel}
-    U::Array{Array{Float64, 1}, 1}
-    Kx::Function
-    KiU::Array{Float64,1}
+    U::Array{Float64,1}
+    kernel::T
+    KiU::Array{Float64,2}
     
-    function npODE{T}(U, kernel) where T<:kernel
-        vU = reduce(vcat, U)
+    function npODE{T}(vU, kernel) where T<:kernel
         KiU = kernel.Kchol \ vU
-        new{T}(U, kernel.Kx, KiU)
+        KiU = reshape(KiU, 1, :)
+        new{T}(vU, kernel, KiU)
     end
 
     # function npODE{T}(vU::Array{Float64, 1}, kernel) where T<:kernel
@@ -99,6 +100,12 @@ struct npODE{T<:kernel}
     # end
 end
 
-npODE(U, kernel::T) where T<:kernel = npODE{T}(U, kernel)
+# make array of real ?
+npODE(U::Array{Float64,1}, kernel::T) where T<:kernel = npODE{T}(U, kernel)
+
+function npODE(U::Array{Array{Float64,1},1}, kernel::T) where T<:kernel
+    vU = reduce(vcat, U)
+    npODE{T}(vU, kernel)
+end
 
 

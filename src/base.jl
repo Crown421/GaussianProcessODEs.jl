@@ -5,7 +5,7 @@ export evalgpode, gpode!, optimizekernelpar, computeinitU, optimizeU
 
 function llutheta(U, kernel, w)
     vU = vec(reduce(hcat, U))
-    return -1/2 * vU' * (kernel.Kchol.U \ (kernel.Kchol.L \ vU)) - 1/2 * log(det(kernel.Kchol.L*kernel.Kchol.U + w * Matrix{Float64}(LinearAlgebra.I, size(kernel.Kchol)) )) 
+    return -1/2 * vU' * (kernel.Kchol \ vU) - 1/2 * log(det(kernel.Kchol)) 
 end
 
 function llutheta(U, kernel)
@@ -15,13 +15,26 @@ end
 
 # # this gives us the vector field x^dot = f(x) = evalGPODE(x[, npODE])
 function evalgpode(x, npODE)
-    Kx = npODE.Kx(x)
-    return Kx * npODE.KiU
+    Kxe = Kx(x, npODE)
+    # this is effectively (K^-1 * U)^T * Kxe^T = f^T (then "untransposed" with [:])
+    return (npODE.KiU * Kxe)[:]
 end
 
 function gpode!(dx, x, npODE, t)
     dx[:] = evalgpode(x, npODE)
 end
+
+function evalJ(x, npODE)
+    dKx = dKx(x, npODE)
+    J = dKx * npODE.KiU'
+    return reshape(J, length(x), length(x))
+end
+
+function evalR(x, npODE)
+    Kx = Kx(x, npODE)
+    return (Kx' / npODE.kernel.Kchol)[:]
+end
+
 
 
 # TODO: transition to update kernel 
@@ -44,7 +57,7 @@ end
 # TODO eventually extend to irregular data (non-equal timesteps)
 function computeinitU(dt, Y, grid, par = [1.0, 1.0, 1.0])
     tgrid = trajgrid(Y[1:end-1]);
-    tker = npODEs.kernel(par, tgrid; kernelfun = expKernel());
+    tker = npODEs.kernel(tgrid, expKernel(par));
 
     tU = diff(Y) ./ dt;
     tnpODE = npODE(tU, tker);
