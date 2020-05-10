@@ -1,6 +1,6 @@
 using NLopt
 
-export evalgpode, gpode!, optimizekernelpar, computeinitU, optimizeU
+export evalgpode, gpode!, optimizekernelpar, computeinitU, optimizeU, variance
 
 
 function llutheta(U, kernel, w)
@@ -33,6 +33,11 @@ end
 function evalR(x, npODE)
     Kx = Kx(x, npODE)
     return (Kx' / npODE.kernel.Kchol)[:]
+end
+
+function variance(x, npODE)
+    Kxe = npODEs.Kx(x, npODE)
+    I - Kxe' * (npODE.kernel.Kchol \ Kxe)
 end
 
 

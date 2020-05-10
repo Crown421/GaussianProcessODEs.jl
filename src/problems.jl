@@ -42,7 +42,7 @@ end
 
 
 function basic!(dx, x, p, t)
-    A = [0. -1.0; 1.0 0.]
+    A = [0. -0.95; 0.95 0.]
     dx[:] = A * x
 end
 

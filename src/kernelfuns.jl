@@ -8,11 +8,13 @@ struct expKernel <: scalarkernel
     param::Array{Float64, 1}
 end
 function kernelfunctionf(z1, z2, ker::expKernel)
-    return ker.param[1]^2 * exp(-1/2 * weuclidean(z1, z2, 1.0 ./ker.param[2:end])^2)
+    d = length(z1)
+    return ker.param[1]^2 * exp(-1/2 * weuclidean(z1, z2, 1.0 ./ker.param[2:d+1])^2)
 end
 
 function derivativekernelfunctionf(z1, z2, ker::expKernel)
-    return ker.param[1]^2 * exp(-1/2 * weuclidean(z1, z2, 1.0 ./ ker.param[2:end])^2) * ( (z1.-z2)./ ker.param[2:end])
+    d = length(z1)
+    return ker.param[1]^2 * exp(-1/2 * weuclidean(z1, z2, 1.0 ./ ker.param[2:d+1])^2) * ( (z1.-z2)./ ker.param[2:d+1])
 end
 
 function matrixkernelfunction(z1::Array{Float64, 1}, z2::Array{Float64, 1}, ker::T) where T <: scalarkernel
@@ -27,8 +29,8 @@ function Kx(x, Z, ker::T) where T <: scalarkernel
 end
 
 function Kx(x, npODE::npODE)
-    Z = npODE.kernel.grid.Z
-    ker = npODE.kernel.kernel
+    Z = npODE.kernel.Z
+    ker = npODE.kernel.kerneltype
     Kx(x, Z, ker)
 end
 
@@ -41,8 +43,8 @@ function dKx(x, Z, ker::T) where T <: scalarkernel
 end
 
 function dKx(x, npODE::npODE)
-    Z = npODE.kernel.grid.Z
-    ker = npODE.kernel.kernel
+    Z = npODE.kernel.Z
+    ker = npODE.kernel.kerneltype
     dKx(x, Z, ker)
 end
 
