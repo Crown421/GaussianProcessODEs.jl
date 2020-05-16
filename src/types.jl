@@ -30,6 +30,9 @@ mutable struct kernel{S<:kerneltype}
         tmp = pairwise((z1, z2) -> matrixkernelfunction(z1, z2, kernelT), Z,  Symmetric)
         K = symblockreduce(tmp)
 
+        sigman = kernelT.param[end]
+        K += sigman * I
+
         # TODO parametrize, check, test
         Id = Matrix{Float64}(LinearAlgebra.I, size(K)... ) * 0.04
         # K = K + Id

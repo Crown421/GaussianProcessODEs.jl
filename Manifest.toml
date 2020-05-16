@@ -20,9 +20,9 @@ version = "0.4.0"
 
 [[Arpack_jll]]
 deps = ["Libdl", "OpenBLAS_jll", "Pkg"]
-git-tree-sha1 = "68a90a692ddc0eb72d69a6993ca26e2a923bf195"
+git-tree-sha1 = "e214a9b9bd1b4e1b4f15b22c0994862b66af7ff7"
 uuid = "68821587-b530-5797-8361-c406ea357684"
-version = "3.5.0+2"
+version = "3.5.0+3"
 
 [[ArrayInterface]]
 deps = ["LinearAlgebra", "Requires", "SparseArrays"]
@@ -45,12 +45,6 @@ version = "0.14.3"
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
-[[BinDeps]]
-deps = ["Libdl", "Pkg", "SHA", "URIParser", "Unicode"]
-git-tree-sha1 = "66158ad56b4bf6cc8413b37d0b7bc52402682764"
-uuid = "9e28174c-4ba2-5203-b857-d8d62c4213ee"
-version = "1.0.0"
-
 [[BinaryProvider]]
 deps = ["Libdl", "SHA"]
 git-tree-sha1 = "5b08ed6036d9d3f0ee6369410b830f8873d4024c"
@@ -62,18 +56,6 @@ deps = ["BandedMatrices", "DiffEqBase", "FiniteDiff", "ForwardDiff", "LinearAlge
 git-tree-sha1 = "0c2ec2c6c241198607e3a6ac585623253e66bad5"
 uuid = "764a87c0-6b3e-53db-9096-fe964310641d"
 version = "2.4.0"
-
-[[CMake]]
-deps = ["BinDeps"]
-git-tree-sha1 = "c67a8689dc5444adc5eb2be7d837100340ecba11"
-uuid = "631607c0-34d2-5d66-819e-eb0f9aa2061a"
-version = "1.1.2"
-
-[[CMakeWrapper]]
-deps = ["BinDeps", "CMake", "Libdl", "Parameters", "Test"]
-git-tree-sha1 = "16d4acb3d37dc05b714977ffefa8890843dc8985"
-uuid = "d5fb7624-851a-54ee-a528-d3f3bac0b4a0"
-version = "0.2.3"
 
 [[ChainRulesCore]]
 deps = ["MuladdMacro"]
@@ -104,6 +86,12 @@ deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", 
 git-tree-sha1 = "ed2c4abadf84c53d9e58510b5fc48912c2336fbb"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
 version = "2.2.0"
+
+[[CompilerSupportLibraries_jll]]
+deps = ["Libdl", "Pkg"]
+git-tree-sha1 = "7c4f882c41faa72118841185afc58a2eb00ef612"
+uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
+version = "0.3.3+0"
 
 [[Contour]]
 deps = ["LinearAlgebra", "StaticArrays", "Test"]
@@ -305,6 +293,7 @@ uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 version = "0.21.0"
 
 [[LibGit2]]
+deps = ["Printf"]
 uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
 
 [[Libdl]]
@@ -339,12 +328,6 @@ version = "0.5.3"
 deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 
-[[MathProgBase]]
-deps = ["Compat"]
-git-tree-sha1 = "3bf2e534e635df810e5f4b4f1a8b6de9004a0d53"
-uuid = "fdba3010-5040-5b88-9595-932c9decdf73"
-version = "0.7.7"
-
 [[Measures]]
 git-tree-sha1 = "e498ddeee6f9fdb4551ce855a46f54dbd900245f"
 uuid = "442fdcdd-2543-5da2-b0f3-8c86c306513e"
@@ -376,12 +359,6 @@ git-tree-sha1 = "b13b1f97ce88a37dd55ce7ae7e75b81002bf2b9d"
 uuid = "d41bc354-129a-5804-8e4c-c37616107c6c"
 version = "7.6.0"
 
-[[NLopt]]
-deps = ["BinaryProvider", "CMakeWrapper", "Libdl", "MathProgBase", "Test"]
-git-tree-sha1 = "b46237debcacd4fed7bbeb31200667a75b90384f"
-uuid = "76087f3c-5699-56af-9a33-bf431cd00edd"
-version = "0.5.1"
-
 [[NLsolve]]
 deps = ["Distances", "LineSearches", "LinearAlgebra", "NLSolversBase", "Printf", "Reexport"]
 git-tree-sha1 = "cce0463af83a0f36c7bfa5820e373ac090cc46ad"
@@ -394,16 +371,22 @@ uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 version = "0.3.3"
 
 [[OpenBLAS_jll]]
-deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "3a6e5767e8ae022871c19162cc3ecd80748bd3dc"
+deps = ["CompilerSupportLibraries_jll", "Libdl", "Pkg"]
+git-tree-sha1 = "3f0d696c0640df9787bd0fb6a65c8fffbf6eacb8"
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
-version = "0.3.7+4"
+version = "0.3.7+9"
 
 [[OpenSpecFun_jll]]
-deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "65f672edebf3f4e613ddf37db9dcbd7a407e5e90"
+deps = ["CompilerSupportLibraries_jll", "Libdl", "Pkg"]
+git-tree-sha1 = "d51c416559217d974a1113522d5919235ae67a87"
 uuid = "efe28fd5-8261-553b-a9e1-b2916fc3738e"
-version = "0.5.3+1"
+version = "0.5.3+3"
+
+[[Optim]]
+deps = ["FillArrays", "LineSearches", "LinearAlgebra", "NLSolversBase", "NaNMath", "Parameters", "PositiveFactorizations", "Printf", "SparseArrays", "StatsBase"]
+git-tree-sha1 = "08f170ff0dcf07f4edb567020fcab47f415da207"
+uuid = "429524aa-4258-5aef-a3af-852621145aeb"
+version = "0.20.1"
 
 [[OrderedCollections]]
 deps = ["Random", "Serialization", "Test"]
@@ -462,6 +445,12 @@ deps = ["Random", "Statistics", "Test"]
 git-tree-sha1 = "44d018211a56626288b5d3f8c6497d28c26dc850"
 uuid = "e409e4f3-bfea-5376-8464-e040bb5c01ab"
 version = "0.4.0"
+
+[[PositiveFactorizations]]
+deps = ["LinearAlgebra", "Test"]
+git-tree-sha1 = "127c47b91990c101ee3752291c4f45640eeb03d1"
+uuid = "85a6dd25-e78a-55b7-8502-1745935b8125"
+version = "0.2.3"
 
 [[Printf]]
 deps = ["Unicode"]
@@ -640,12 +629,6 @@ deps = ["Test"]
 git-tree-sha1 = "8d0d7a3fe2f30d6a7f833a5f19f7c7a5b396eae6"
 uuid = "a2a6695c-b41b-5b7d-aed9-dbfdeacea5d7"
 version = "0.3.0"
-
-[[URIParser]]
-deps = ["Test", "Unicode"]
-git-tree-sha1 = "6ddf8244220dfda2f17539fa8c9de20d6c575b69"
-uuid = "30578b45-9adc-5946-b283-645ec420af67"
-version = "0.4.0"
 
 [[UUIDs]]
 deps = ["Random", "SHA"]
