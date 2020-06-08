@@ -1,6 +1,5 @@
 export radialgrid, rectanglegrid, kernel, updatekernel!, npODE
 
-abstract type kerneltype end
 abstract type gridtype end
 
 function rectanglegrid(borders, stepSizes)
@@ -27,8 +26,7 @@ mutable struct kernel{S<:kerneltype}
     kerneltype::S
 
     function kernel{S}(Z, kernelT::S) where {S <:kerneltype }
-        tmp = pairwise((z1, z2) -> matrixkernelfunction(z1, z2, kernelT), Z,  Symmetric)
-        K = symblockreduce(tmp)
+        K = computeK(Z, kernelT)
 
         sigman = kernelT.param[end]
         K += sigman * I
@@ -41,6 +39,7 @@ mutable struct kernel{S<:kerneltype}
         new{S}(Kchol, Z, kernelT)
     end
 end
+
 function kernel(Z, kernelfun::S) where {S <: kerneltype}
     return kernel{S}(Z, kernelfun)
 end

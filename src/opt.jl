@@ -80,7 +80,7 @@ function loglikelihood(w,y,npode, costtype)
     term3 = trajdiff(w, y, npode, costtype)
     vU = vec(reduce(hcat, npode.U))
 
-    return -1/2 * vU' * (npode.kernel.Kchol \ vU) - 1/2 * log(det(npode.kernel.Kchol)) - 1/2 * term3 - N * sum(log.(w))
+    return -1/2 * vU' * (npode.kernel.Kchol \ vU) - sum(log.(diag(npode.kernel.Kchol.L))) - 1/2 * term3 - N * sum(log.(w))
 end
 
 function detailloglikelihood(w,y,npode)
@@ -91,6 +91,7 @@ function detailloglikelihood(w,y,npode)
 
     t1 = -1/2 * vU' * (npode.kernel.Kchol \ vU) 
     t2 = - 1/2 * log(det(npode.kernel.Kchol)) 
+    t2alt = - sum(log.(diag(npode.kernel.Kchol.L)))
     t31 = - 1/2 * term31 
     t32 = - 1/2 * term32
     t4 = - N * sum(log.(w))
@@ -99,6 +100,7 @@ function detailloglikelihood(w,y,npode)
 
     println("u'Ku: $t1")
     println("log det K: $t2")
+    println("alt log det K: $t2alt")
     println("sum log w: $t4")
     println("local error:  $t31, total: $(t4 + t31)")
     println("global error: $t32, total: $(t4 + t32)")

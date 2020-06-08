@@ -6,8 +6,9 @@ using VectorizedRoutines: pairwise
 using LinearAlgebra
 using Optim
 
-include("types.jl")
 include("kernelfuns.jl")
+include("types.jl")
+
 include("opt.jl")
 include("utils.jl")
 include("base.jl")

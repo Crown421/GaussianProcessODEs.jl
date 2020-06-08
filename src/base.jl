@@ -11,6 +11,12 @@ function llutheta(U, kernel)
     return -1/2 * vU' * (kernel.Kchol.U \ (kernel.Kchol.L \ vU)) - 1/2 * log(det(kernel.Kchol) + w) 
 end
 
+function Kx(x, npODE::npODE)
+    Z = npODE.kernel.Z
+    ker = npODE.kernel.kerneltype
+    Kx(x, Z, ker)
+end
+
 # # this gives us the vector field x^dot = f(x) = evalGPODE(x[, npODE])
 function evalgpode(x, npODE)
     Kxe = Kx(x, npODE)
