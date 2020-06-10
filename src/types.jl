@@ -1,4 +1,5 @@
-export radialgrid, rectanglegrid, kernel, updatekernel!, npODE
+export radialgrid, rectanglegrid, kernel, npODE
+export trajectory
 
 abstract type gridtype end
 
@@ -8,7 +9,10 @@ function rectanglegrid(borders, stepSizes)
 end
 
 function rectanglegrid(borders, nGrid::Int)
-    stepSizes = ones(length(borders))*maximum(reduce(vcat, diff.(borders)./nGrid))
+    maxstep = maximum(reduce(vcat, diff.(borders)./nGrid))
+    npoints = ceil.(reduce(vcat, (diff.(borders)./maxstep)))
+    stepSizes = reduce(vcat, diff.(borders) ./ npoints)
+
     return rectanglegrid(borders, stepSizes)
 end
 
@@ -76,4 +80,16 @@ function npODE(U::Array{Array{Float64,1},1}, kernel::T) where T<:kernel
     npODE{T}(vU, kernel)
 end
 
+
+### type to store trajectories that might not be from DiffEq
+struct trajectory
+    t::Array{Float64,1}
+    u::Array{Array{Float64,1},1}
+end
+
+function trajectory(sol, dt = 0.05)
+    t = collect(sol.t[1]:dt:sol.t[end])
+    u = sol(t).u 
+    trajectory(t,u)
+end
 

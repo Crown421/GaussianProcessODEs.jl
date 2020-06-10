@@ -10,9 +10,9 @@ include("kernelfuns.jl")
 include("types.jl")
 
 include("opt.jl")
-include("utils.jl")
 include("base.jl")
 include("problems.jl")
+include("utils.jl")
 # include("visualization.jl")
 
 end # module

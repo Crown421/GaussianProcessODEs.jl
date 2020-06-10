@@ -28,17 +28,6 @@ function gpode!(dx, x, npODE, t)
     dx[:] = evalgpode(x, npODE)
 end
 
-function evalJ(x, npODE)
-    dKx = dKx(x, npODE)
-    J = dKx * npODE.KiU'
-    return reshape(J, length(x), length(x))
-end
-
-function evalR(x, npODE)
-    Kx = Kx(x, npODE)
-    return (Kx' / npODE.kernel.Kchol)[:]
-end
-
 function variance(x, npODE)
     Kxe = npODEs.Kx(x, npODE)
     I - Kxe' * (npODE.kernel.Kchol \ Kxe)

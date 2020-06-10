@@ -67,12 +67,6 @@ function dKx(x, Z, ker::T) where T <: scalarkernel
     (kron(tmp, Id))
 end
 
-# function dKx(x, npODE::npODE)
-#     Z = npODE.kernel.Z
-#     ker = npODE.kernel.kerneltype
-#     dKx(x, Z, ker)
-# end
-
 
 # export symblockreduce
 function symblockreduce(A)
