@@ -87,9 +87,9 @@ struct trajectory
     u::Array{Array{Float64,1},1}
 end
 
-function trajectory(sol, dt = 0.05)
-    t = collect(sol.t[1]:dt:sol.t[end])
-    u = sol(t).u 
-    trajectory(t,u)
-end
+# function trajectory(sol, dt = 0.05)
+#     t = collect(sol.t[1]:dt:sol.t[end])
+#     u = sol(t).u 
+#     trajectory(t,u)
+# end
 

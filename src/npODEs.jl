@@ -5,6 +5,7 @@ using Distances
 using VectorizedRoutines: pairwise
 using LinearAlgebra
 using Optim
+using QuadGK
 
 include("kernelfuns.jl")
 include("types.jl")
