@@ -1,27 +1,7 @@
-export radialgrid, rectanglegrid, kernel, npODE
+export kernel, npODE
 export trajectory
 
 abstract type gridtype end
-
-function rectanglegrid(borders, stepSizes)
-    tmp = [range(borders[i][1], borders[i][end], step = stepSizes[i]) for i in 1:length(borders)] 
-    Z = collect.(collect(Iterators.product(tmp...)))[:]
-end
-
-function rectanglegrid(borders, nGrid::Int)
-    maxstep = maximum(reduce(vcat, diff.(borders)./nGrid))
-    npoints = ceil.(reduce(vcat, (diff.(borders)./maxstep)))
-    stepSizes = reduce(vcat, diff.(borders) ./ npoints)
-
-    return rectanglegrid(borders, stepSizes)
-end
-
-
-function radialgrid(radius, nGridPoints; origin = [0,0])
-    r = range(0, 3, length = nGridPoints+1)[2:end]
-    th = collect(range(0, 2*pi, length = nGridPoints+1))[1:end-1]
-    Z = [ [r*cos(th), r*sin(th)] for th in th, r in r][:] .+ [origin]
-end
 
 
 mutable struct kernel{S<:kerneltype}
@@ -36,7 +16,7 @@ mutable struct kernel{S<:kerneltype}
         K += sigman * I
 
         # TODO parametrize, check, test
-        Id = Matrix{Float64}(LinearAlgebra.I, size(K)... ) * 0.04
+        # Id = Matrix{Float64}(LinearAlgebra.I, size(K)... ) * 0.04
         # K = K + Id
         Kchol = LinearAlgebra.cholesky(K)
 
@@ -55,7 +35,7 @@ end
 #     ker.Kx = x -> reduce(vcat, pKernel.(Ref(x), ker.grid.Z))
 # end
 
-
+# at some point, change to Array{,1} and no reshape
 struct npODE{T<:kernel}
     U::Array{Float64,1}
     kernel::T
@@ -63,7 +43,7 @@ struct npODE{T<:kernel}
     
     function npODE{T}(vU, kernel) where T<:kernel
         KiU = kernel.Kchol \ vU
-        KiU = reshape(KiU, 1, :)
+        KiU = reshape(KiU, :, 1)
         new{T}(vU, kernel, KiU)
     end
 
@@ -85,11 +65,12 @@ end
 struct trajectory
     t::Array{Float64,1}
     u::Array{Array{Float64,1},1}
+
+    function trajectory(sol, dt = 0.05)
+        t = collect(sol.t[1]:dt:sol.t[end])
+        u = sol(t).u 
+        new(t,u)
+    end
 end
 
-# function trajectory(sol, dt = 0.05)
-#     t = collect(sol.t[1]:dt:sol.t[end])
-#     u = sol(t).u 
-#     trajectory(t,u)
-# end
 

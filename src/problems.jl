@@ -1,4 +1,5 @@
-export ckepler, ckepler!, pkepler, pkepler!, vdp, vdp!, basic!, basic
+# export ckepler, ckepler!, pkepler, pkepler!
+export vdp, vdp!, basic!, basic
 
 
 m = 1;

@@ -2,6 +2,8 @@
 export expKernel, rotexpKernel
 export computeK # should probably not be exported
 
+export keplerKernel
+
 abstract type kerneltype end
 abstract type scalarkernel <: kerneltype  end
 abstract type matrixkernel <: kerneltype end
@@ -17,7 +19,15 @@ end
 
 struct rotexpKernel <: matrixkernel 
     param::Array{Float64, 1}
+    phis::Array{Float64, 1}
+    weights::Array{Float64, 1}
+
+    function rotexpKernel(param; N = 30)
+        phis, weights = gauss(N, 0, 2*pi)
+        new(param, phis, weights)
+    end
 end
+
 
 rot(phi) = [cos(phi) -sin(phi); sin(phi) cos(phi)]
 function rotexpIntegrand(phi, x1, x2, w)
@@ -26,11 +36,58 @@ end
 
 function kernelfunctionf(z1, z2, ker::rotexpKernel)
     d = length(z1)
-    w = vcat(ker.param[1], ker.param[2:d+1] .^2)  
-    costerm, _ = quadgk(phi -> rotexpIntegrand(phi, z1, z2, w)* cos(phi), 0, 2*pi, rtol = 1e-6)
-    sinterm, _ = quadgk(phi -> rotexpIntegrand(phi, z1, z2, w)* sin(phi), 0, 2*pi, rtol = 1e-6)
+    w = ker.param
+    # w = vcat(ker.param[1], ker.param[2:d+1] .^2)  
+    # costerm, _ = quadgk(phi -> rotexpIntegrand(phi, z1, z2, w)* cos(phi), 0, 2*pi, rtol = 1e-6)
+    # sinterm, _ = quadgk(phi -> rotexpIntegrand(phi, z1, z2, w)* sin(phi), 0, 2*pi, rtol = 1e-6)
+
+    phi = ker.phis
+    weights = ker.weights
+
+    base = rotexpIntegrand.(phi, Ref(z1), Ref(z2), Ref(w)) .*weights
+
+    costerm = sum(base .* cos.(phi) )
+    sinterm = sum(base .* sin.(phi) )
 
     K = [costerm -sinterm; sinterm costerm]
+end
+
+# very ad-hoc, needs much better implementation
+struct keplerKernel <: matrixkernel 
+    param::Array{Float64, 1}
+    phis::Array{Float64, 1}
+    weights::Array{Float64, 1}
+
+    function keplerKernel(param; N = 30)
+        phis, weights = gauss(N, 0, 2*pi)
+        new(param, phis, weights)
+    end
+end
+function kernelfunctionf(z1, z2, ker::keplerKernel)
+    d = length(z1)
+    w = ker.param
+    # w = vcat(ker.param[1], ker.param[2:d+1] .^2)  
+
+    phi = ker.phis
+    weights = ker.weights
+
+    base1 = rotexpIntegrand.(phi, Ref(z1[1:2]), Ref(z2[1:2]), Ref(w))
+    base2 = rotexpIntegrand.(phi, Ref(z1[3:4]), Ref(z2[3:4]), Ref(w))
+
+    costerm1 = sum(base1 .* cos.(phi) .*weights)
+    sinterm1 = sum(base1 .* sin.(phi) .*weights)
+
+    costerm2 = sum(base2 .* cos.(phi) .*weights)
+    sinterm2 = sum(base2 .* sin.(phi) .*weights)
+
+    K = [costerm2 -sinterm2 0 0;
+         sinterm2 costerm2 0 0;
+         0 0 costerm1 -sinterm1;
+         0 0 sinterm1 costerm1]
+    # K = [0 0 costerm2 -sinterm2;
+    #      0 0 sinterm2 costerm2;
+    #      costerm1 -sinterm1 0 0;
+    #      sinterm1 costerm1 0 0]
 end
 
 function dist(z1, z2, ker)
@@ -85,7 +142,11 @@ end
 function Kx(x, Z, ker::T) where T <: scalarkernel
     Id = Matrix{Float64}(LinearAlgebra.I, length(x), length(x))
     scalars = kernelfunctionf.(Ref(x), Z, Ref(ker))
-    (kron(scalars, Id))
+    (kron(scalars', Id))
+end
+
+function Kx(x, Z, ker::T) where T <: matrixkernel
+    computeK([x], Z, ker)
 end
 
 
