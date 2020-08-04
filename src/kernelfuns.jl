@@ -63,6 +63,11 @@ struct keplerKernel <: matrixkernel
         new(param, phis, weights)
     end
 end
+
+function keplrotexpIntegrand(phi, x1, x2, w)
+    x2r = vcat(rot(phi)*x2[1:2], rot(phi)*x2[3:4])
+    npODEs.kernelfunctionf(x1, x2r, expKernel(w))
+end
 function kernelfunctionf(z1, z2, ker::keplerKernel)
     d = length(z1)
     w = ker.param
@@ -71,17 +76,17 @@ function kernelfunctionf(z1, z2, ker::keplerKernel)
     phi = ker.phis
     weights = ker.weights
 
-    base1 = rotexpIntegrand.(phi, Ref(z1[1:2]), Ref(z2[1:2]), Ref(w))
-    base2 = rotexpIntegrand.(phi, Ref(z1[3:4]), Ref(z2[3:4]), Ref(w))
+    base1 = keplrotexpIntegrand.(phi, Ref(z1), Ref(z2), Ref(w))
+    # base2 = rotexpIntegrand.(phi, Ref(z1[3:4]), Ref(z2[3:4]), Ref(w))
 
     costerm1 = sum(base1 .* cos.(phi) .*weights)
     sinterm1 = sum(base1 .* sin.(phi) .*weights)
 
-    costerm2 = sum(base2 .* cos.(phi) .*weights)
-    sinterm2 = sum(base2 .* sin.(phi) .*weights)
+    # costerm2 = sum(base2 .* cos.(phi) .*weights)
+    # sinterm2 = sum(base2 .* sin.(phi) .*weights)
 
-    K = [costerm2 -sinterm2 0 0;
-         sinterm2 costerm2 0 0;
+    K = [costerm1 -sinterm1 0 0;
+         sinterm1 costerm1 0 0;
          0 0 costerm1 -sinterm1;
          0 0 sinterm1 costerm1]
     # K = [0 0 costerm2 -sinterm2;
