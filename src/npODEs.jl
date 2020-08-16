@@ -10,6 +10,7 @@ using KernelFunctions
 
 include("kernelfuns.jl")
 include("types.jl")
+include("kernelutils.jl")
 
 include("opt.jl")
 include("base.jl")
