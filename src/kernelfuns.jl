@@ -5,6 +5,10 @@ export computeK # should probably not be exported
 export keplerKernel
 
 abstract type kerneltype end
+abstract type abstractkronkernel <: kerneltype  end
+abstract type abstracmatrixkernel <: kerneltype end
+
+# temporary
 abstract type scalarkernel <: kerneltype  end
 abstract type matrixkernel <: kerneltype end
 
@@ -16,6 +20,61 @@ function kernelfunctionf(z1, z2, ker::expKernel)
     w = ker.param[2:d+1] .^2  #better without square , very odd, likely issue with forward differences
     return ker.param[1]^2 * exp(-1/2 * wsqeuclidean(z1, z2, 1.0 ./w))
 end
+
+
+struct uncoupledMKernel{kmc, K, Qt} <: abstractkronkernel
+    kernels::K
+    Q::Qt
+end
+
+###
+# Core structure that is part of each component of the structured matrix kernel
+###
+struct integralKernelCore{GKP, K <: KernelFunctions.Kernel } 
+    kernel::K
+    groupaction::Function
+    # may need to be changed for more general group action?
+    parameterinterval::Tuple{Float64,Float64}
+    gkparams::GKP
+
+    integralKernelCore{T,K}(ker::K, grpa, psp, gkparams::T) where {T,K} = new(ker, grpa, psp, gkparams)
+
+end
+
+function integralKernelCore(ker::K, grpa, parameterinterval, N::Int) where K
+    gkparams = NamedTuple{(:x, :weights)}(gauss(N, parameterinterval...))
+    integralKernelCore{typeof(gkparams), K}(ker, grpa, parameterinterval, gkparams)
+end
+
+function integralKernelCore(ker::K, grpa, parameterinterval, N::Nothing) where K
+    integralKernelCore{typeof(N), K}(ker, grpa, parameterinterval, N)
+end
+
+function (ikc::integralKernelCore)(f)
+    integralKernelComponent(ikc, f)
+end
+
+
+###
+# Creating the actual component kernel
+###
+struct integralKernelComponent{iKC} <:KernelFunctions.Kernel
+    iKCore::iKC
+    f::Function
+end
+
+function (ik::integralKernelComponent)(z1, z2)
+    grpa = ik.iKCore.groupaction
+    gkp = ik.iKCore.gkparams 
+    ker = ik.iKCore.kernel
+    f = ik.f
+    # slightly faster than broadcasting
+    return mapreduce( x -> x[1]*ker(z1, grpa(x[2]) * z2) *f(x[2]), +, zip(gkp.weights, gkp.x))
+    # return sum(ker.(Ref(z1), grpa.(gkp.x) .* [z2]) .* f.(gkp.x) .* gkp.weights)
+end
+
+
+
 
 struct rotexpKernel <: matrixkernel 
     param::Array{Float64, 1}

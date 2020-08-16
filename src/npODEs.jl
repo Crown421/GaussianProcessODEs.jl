@@ -6,6 +6,7 @@ using VectorizedRoutines: pairwise
 using LinearAlgebra
 using Optim
 using QuadGK
+using KernelFunctions
 
 include("kernelfuns.jl")
 include("types.jl")
