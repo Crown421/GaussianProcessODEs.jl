@@ -1,3 +1,5 @@
+import KernelFunctions: kernelmatrix
+
 #####
 # create new kernel with updated parameters
 # currently limited functions
@@ -29,10 +31,13 @@ function getparam(ker::TransformedKernel{K, ARDTransform{Array{Float64,1}}}) whe
     return 1/sqrt(2.) ./ ker.transform.v
 end
 
-function getparam(mker::K) where K <: npODEs.MatrixKernel
-    ker = mker.kernel
+function getparam(ker)
     res = getparam.(getfield.(Ref(ker), fieldnames(typeof(ker))))
     return reduce(vcat, reverse(res))
+end
+
+function getparam(mker::K) where K <: MatrixKernel
+    return getparam(mker.kernel)
 end
 
 
@@ -41,6 +46,70 @@ end
 #######
 # compute kernel matrices
 #######
+
+###
+# for Kronecker compatible kernels
+
+function kernelmatrix(mker::K, Z) where K<:KronMatrixKernel 
+    # remarkably faster than mapreduce( (k,q) -> kron(kernelmatrix(k, test), q), +, K,Q)
+    KE = mker.kernels
+    Q = mker.Q
+    mapreduce(x -> kron(kernelmatrix(x[1], Z), x[2]), +, zip(KE,Q))
+end
+
+function kernelmatrix(mker::K, a, b) where K<:KronMatrixKernel 
+    # remarkably faster than mapreduce( (k,q) -> kron(kernelmatrix(k, test), q), +, K,Q)
+    KE = mker.kernels
+    Q = mker.Q
+    mapreduce(x -> kron(kernelmatrix(x[1], a, b), x[2]), +, zip(KE,Q))
+end
+
+
+###
+# for kernels that return a (full) matrix
+function kernelmatrix(mker::K, Z) where K <:MatrixKernel
+    innerN= size(Z[1], 1)
+    outerN = length(Z)
+    n = innerN* outerN
+    B = Zygote.Buffer([Z[1][1]], n,n)
+    @inbounds for j in 1:outerN
+        modj = 1 + (j-1) * innerN
+        for i in j:outerN
+            modi = 1 + (i-1) * innerN
+            B[modi:modi+innerN-1, modj:modj+innerN-1] = mker(Z[i], Z[j])
+        end
+        for i in 1:j-1
+            modi = 1 + (i-1) * innerN
+            B[modi:modi+innerN-1, modj:modj+innerN-1] = B[modj:modj+innerN-1, modi:modi+innerN-1]'
+        end
+    end
+    return copy(B)
+end
+
+
+function kernelmatrix(mker::K, a, b) where K <:MatrixKernel
+    innerN= size(a[1], 1)
+    outerN1 = length(a)
+    outerN2 = length(b)
+    n1 = innerN* outerN1
+    n2 = innerN* outerN2
+    B = Zygote.Buffer([a[1][1]], n1,n2)
+    @inbounds for j in 1:outerN2
+        modj = 1 + (j-1) * innerN
+        for i in 1:outerN1
+            modi = 1 + (i-1) * innerN
+            B[modi:modi+innerN-1, modj:modj+innerN-1] = mker(a[i], b[j])
+        end
+    end
+    return copy(B)
+end
+
+
+
+
+####
+## Old
+###
 
 
 function computeK(Z, kernelT::S) where {S <:matrixkernel }
@@ -105,6 +174,7 @@ function symblockreduce(A)
     outerN = size(A, 1)
     n = innerN* outerN
     B = Symmetric(Matrix{typeof(A[1][1])}(undef, n, n))
+    # B = Matrix{typeof(A[1][1])}(undef, n, n)
     # @inbounds
     for j in 1:outerN
         modj = 1 + (j-1) * innerN

@@ -1,6 +1,7 @@
 module npODEs
 
 using DifferentialEquations
+using Zygote
 using Distances
 using VectorizedRoutines: pairwise
 using LinearAlgebra

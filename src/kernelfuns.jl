@@ -1,6 +1,7 @@
 #
 export expKernel, rotexpKernel
 export computeK # should probably not be exported
+export uncoupledMKernel, GIMKernel, rotKernel
 
 export keplerKernel
 
@@ -16,10 +17,33 @@ abstract type MatrixKernel <: kerneltype end
 abstract type KronMatrixKernel <: kerneltype  end
 
 
-struct uncoupledMKernel{kmc, K, Qt} <: KronMatrixKernel
+struct uncoupledMKernel{N, K<:NTuple{N, Kernel}, Qt <: NTuple{N, Array{<:Real, 2}} } <: KronMatrixKernel 
     kernels::K
     Q::Qt
 end
+
+# evaluate
+function (mker::uncoupledMKernel)(z1,z2)
+    K = mker.kernels
+    Q = mker.Q
+    return mapreduce(x -> x[1](z1,z2) * x[2], +, zip(K,Q))
+end
+    
+# reparametrize
+function (mker::uncoupledMKernel)(w::Array{<:Real, 1})
+    K = mker.kernels
+    
+    ls = length.(npODEs.getparam.(K))
+    endIdx = cumsum(ls)
+    startIdx = endIdx .- (ls .- 1)
+    ra = range.(startIdx, endIdx, step = 1)
+    indw = getindex.(Ref(w), ra)
+    
+    K = map( (k,w) -> k(w), K, indw)
+    typeof(mker)(K, mker.Q)
+end
+
+
 
 
 ###
@@ -36,21 +60,21 @@ struct GIMKernel{GKP, K <: KernelFunctions.Kernel } <: MatrixKernel
 
 end
 
+# constructor
 function GIMKernel(ker::K, grpa, parameterinterval, N::Int) where K
     gkparams = NamedTuple{(:x, :weights)}(gauss(N, parameterinterval...))
-    integralKernelCore{typeof(gkparams), K}(ker, grpa, parameterinterval, gkparams)
+    GIMKernel{typeof(gkparams), K}(ker, grpa, parameterinterval, gkparams)
 end
 
 function GIMKernel(ker::K, grpa, parameterinterval, N::Nothing) where K
-    integralKernelCore{typeof(N), K}(ker, grpa, parameterinterval, N)
+    GIMKernel{typeof(N), K}(ker, grpa, parameterinterval, N)
 end
 
-
-
+# evaluation
 function (ik::GIMKernel)(z1, z2)
-        grpa = ik.iKCore.groupaction
-        gkp = ik.iKCore.gkparams 
-        ker = ik.iKCore.kernel
+        grpa = ik.groupaction
+        gkp = ik.gkparams 
+        ker = ik.kernel
     
         base = gkp.weights .* map(x->ker(z1, grpa(x) * z2), gkp.x)
         return sum(base .* grpa.(gkp.x))
@@ -65,30 +89,39 @@ struct rotKernel{K <: KernelFunctions.Kernel, GKP }  <: MatrixKernel
     gkparams::GKP
 end
 
+# constructor
 function rotKernel(ker::K; N::Int) where K
     gkparams = NamedTuple{(:x, :weights)}(gauss(N, 0, 2pi))
     rotKernel{K, typeof(gkparams)}(ker, gkparams)
 end
 
-# rot(phi) = [cos(phi) -sin(phi); sin(phi) cos(phi)]
+# group action
 function rot(phi) 
     c = cos(phi)
     s = sin(phi)
     [c -s; s c]
 end
 
+# evaluation
 function (rk::rotKernel)(z1, z2)
     gkp = rk.gkparams 
     ker = rk.kernel
 
     base = map(x -> ker(z1, rot(x) * z2), gkp.x) .* gkp.weights 
     costerm = sum(base .* cos.(gkp.x) )
-    sinterm = sum(base .* sin.(gkp.x) )
+    if z1 == z2
+        sinterm = 0.
+    else
+        sinterm = sum(base .* sin.(gkp.x) )
+    end
     [costerm -sinterm; sinterm costerm]
 end
 
+# reparametize
+# there is numerical issues
 function (mker::npODEs.rotKernel)(w::Array{T, 1}) where {T <: Real}
-    typeof(mker)(mker.kernel(w), mker.gkparams)
+    l = vcat(w[1:2], w[2])
+    typeof(mker)(mker.kernel(l), mker.gkparams)
 end
 
 
