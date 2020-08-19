@@ -1,36 +1,6 @@
 export SparseGP, GPmodel, GPODE
 
 # https://github.com/SciML/DiffEqFlux.jl/blob/c59971fd4d3ee84aff39f88b7073d7e8cf51c34c/src/neural_de.jl#L38
-basic_tgrad(u,p,t) = zero(u)
-
-
-struct GPODE{M<:GPmodel,T,A,K} #<: NeuralDELayer
-    model::M
-    # p::P, maybe one day
-    tspan::T
-    args::A
-    kwargs::K
-
-    function GPODE(model::GPM,tspan,args...; kwargs...) where GPM <: GPmodel
-        new{typeof(model),typeof(tspan),typeof(args),typeof(kwargs)}(
-            model,tspan,args,kwargs)
-    end
-end
-
-function GPODE(sgp::SGP,tspan,args...;kwargs...) where SGP <: SparseGP
-    gpm = GPmodel(sgp)
-    return GPODE(gpm,tspan,args...,kwargs...)
-end
-
-function (gp::GPODE)(x)
-    dudt_(u,p,t) = gp.model(u)
-    ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
-    prob = ODEProblem{false}(ff,x,getfield(gp,:tspan))
-    solve(prob,gp.args...;gp.kwargs...)
-end
-
-
-
 
 
 ###
@@ -138,4 +108,32 @@ function _computeKinvU(sgp::SparseGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}
     return Σ \ (Kfu' * (Λ \ vY))
 end
 
+#####
+# complete GPODE construct
+#####
+basic_tgrad(u,p,t) = zero(u)
+struct GPODE{M<:GPmodel,T,A,K} #<: NeuralDELayer
+    model::M
+    # p::P, maybe one day
+    tspan::T
+    args::A
+    kwargs::K
+
+    function GPODE(model::GPM,tspan,args...; kwargs...) where GPM <: GPmodel
+        new{typeof(model),typeof(tspan),typeof(args),typeof(kwargs)}(
+            model,tspan,args,kwargs)
+    end
+end
+
+function GPODE(sgp::SGP,tspan,args...;kwargs...) where SGP <: SparseGP
+    gpm = GPmodel(sgp)
+    return GPODE(gpm,tspan,args...,kwargs...)
+end
+
+function (gp::GPODE)(x)
+    dudt_(u,p,t) = gp.model(u)
+    ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
+    prob = ODEProblem{false}(ff,x,getfield(gp,:tspan))
+    solve(prob,gp.args...;gp.kwargs...)
+end
 
