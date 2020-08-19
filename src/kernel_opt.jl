@@ -3,28 +3,10 @@ export train_gpmodel
 
 
 #####
-# training function
-#### 
-function train_gpmodel(sgp::SGP; show_opt = false, method::M = FITC1(), grad = false) where {SGP <: SparseGP, M <: SparseGPMethod}
-    ker = sgp.kernel
-    obj = define_objective(sgp; method = method, grad = grad)
-    optres = optimize(obj, log.(getparam(ker)))
-    wopt = exp.(optres.minimizer)
-    if show_opt
-        display(optres)
-        display(wopt)
-    end
-    optker = ker(wopt)
-    
-    return typeof(sgp)(optker, sgp.σ_n, sgp.inP, sgp.mean, sgp.trafo)
-end
-
-
-#####
 # traditional log-likelihood
 #####
 
-function _loglikelihood(logw, sgp::SGP, indP::NTuple{2, Array{<:Array{<:Real,1},1}} = sgp.inP) where SGP <: SparseGP    
+function _loglikelihood(logw, sgp::SGP, indP::NTuple{2, Array{<:Array{<:Real,1},1}}) where SGP <: SparseGP    
     kernel = sgp.kernel
     X = indP[1]
     Y = indP[2]
@@ -50,7 +32,7 @@ end
 # FITC log likelihood cost
 ######
 # add type to SparseGP and then (for NTuple{3,...}) dispatch on it for different likelihoods
-function _loglikelihood(logw, sgp::SGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}} = sgp.inP) where SGP <: SparseGP
+function _loglikelihood(logw, sgp::SGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}} ) where SGP <: SparseGP
     kernel = sgp.kernel
     Z = indP[1]
     X = indP[2]
@@ -82,7 +64,7 @@ end
 # gradient, for either of the two above
 #####
 function _llgrad(G, logw, sgp)
-    tmp = gradient(w -> _loglikelihood(logw, sgp), logw)
+    tmp = gradient(w -> _loglikelihood(logw, sgp, sgp.inP), logw)
     G[:] = tmp[1]
 end
 
@@ -90,7 +72,7 @@ end
 ######
 # VLB, Titsias variatonal lower bound
 ######
-function _variational_lowerbound(logw, sgp::SGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}} = sgp.inP) where SGP <: SparseGP
+function _variational_lowerbound(logw, sgp::SGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}}) where SGP <: SparseGP
     kernel = sgp.kernel
     Z = indP[1]
     X = indP[2]
@@ -121,8 +103,8 @@ function _variational_lowerbound(logw, kernel, Z, X, Y, σ_n)
 end
 
 
-function _llgrad(G, logw, sgp)
-    tmp = gradient(w -> _loglikelihood(logw, sgp), logw)
+function _vlbgrad(G, logw, sgp)
+    tmp = gradient(w -> _loglikelihood(logw, sgp, sgp.inP), logw)
     G[:] = tmp[1]
 end
 
@@ -131,8 +113,13 @@ abstract type SparseGPMethod end
 struct FITC <: SparseGPMethod end
 struct VLB <: SparseGPMethod end
 # have this dispatch on LL/ elbo object
+
 function define_objective(sgp::SGP; method::M = FITC(), grad = false) where {SGP <: SparseGP, M <: SparseGPMethod}
-    c(logw) = _loglikelihood(logw, sgp)
+    return _define_objective(sgp, method, grad)
+end
+
+function _define_objective(sgp::SGP, method::FITC, grad = false) where {SGP <: SparseGP}
+    c(logw) = _loglikelihood(logw, sgp, sgp.inP)
     if grad
         g(G,logw) = _llgrad(G, logw, sgp)
         return (c,g)
@@ -142,12 +129,31 @@ function define_objective(sgp::SGP; method::M = FITC(), grad = false) where {SGP
 end
 
 
-function define_objective(sgp::SGP; method::M = VLB(), grad = false) where {SGP <: SparseGP, M <: SparseGPMethod}
-    c(logw) = _variational_lowerbound(logw, sgp)
+function _define_objective(sgp::SGP, method::VLB, grad = false) where {SGP <: SparseGP}
+    c(logw) = _variational_lowerbound(logw, sgp, sgp.inP)
     if grad
         g(G,logw) = _vlbgrad(G, logw, sgp)
         return (c,g)
     else
         return c
     end
+end
+
+
+
+#####
+# training function
+#### 
+function train_gpmodel(sgp::SGP; show_opt = false, method::M = FITC1(), grad = false) where {SGP <: SparseGP, M <: SparseGPMethod}
+    ker = sgp.kernel
+    obj = define_objective(sgp; method = method, grad = grad)
+    optres = optimize(obj, log.(getparam(ker)))
+    wopt = exp.(optres.minimizer)
+    if show_opt
+        display(optres)
+        display(wopt)
+    end
+    optker = ker(wopt)
+    
+    return typeof(sgp)(optker, sgp.σ_n, sgp.inP, sgp.mean, sgp.trafo)
 end

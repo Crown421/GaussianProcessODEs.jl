@@ -46,6 +46,8 @@ end
 
 
 
+
+
 ###
 # Core structure that is part of each component of the structured matrix kernel
 ###

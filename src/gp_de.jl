@@ -18,63 +18,6 @@ basic_tgrad(u,p,t) = zero(u)
 # end
 
 
-
-###
-# GP model, that contains the sparse GP object with all necessary data, and 
-struct GPmodel{SGP <: SparseGP, T<:Real}
-    sgp::SGP
-    KinvU::Array{T,2}
-end 
-
-# maybe with data
-function GPmodel(sgp::SparseGP)
-    KiU = computeKinvU(sgp)
-    GPmodel(sgp, KiU)
-end
-
-function (gpm::GPmodel)(x)
-    Kx = gpm.sgp(x)
-    return (Kx * gpm.KinvU)[:]
-end
-
-
-####
-# functions to facilitate efficient computation, as per Q-C&R
-function computeKinvU(sgp::SparseGP, indP::NTuple{2, Array{<:Array{<:Real,1},1}} = sgp.inP ) 
-    Z = indP[1]
-    U = indP[2]
-#     vU = reduce(vcat, U)
-    # ToDo: might have to make output(?) dimensions more explicit
-    vU = reshape(reduce(vcat, U), :, length(Z)*length(Z[1]))
-    vU = permutedims(vU)
-    ker = sgp.kernel
-    K = kernelmatrix(ker, Z)
-    return K \ vU
-end
-
-function computeKinvU(sgp::SparseGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}} = sgp.inP ) 
-    Z = indP[1]
-    X = indP[2]
-    Y = indP[3]
-    ker = sgp.kernel
-    
-    Kff = kernelmatrix(ker, X)
-    Kfu = kernelmatrix(ker, X, Z)
-    Kuu = kernelmatrix(ker, Z)
-    
-    Qff = Kfu * ( Kuu \ Kfu' )
-    
-    noise = sgp.σ_n
-    Λ = diagm(diag( Kff - Qff) .+ noise)
-    
-    Σ = Kuu + Kfu' * (Λ \ Kfu)
-    
-    vY = reshape(reduce(vcat, Y), :, length(X)*length(X[1]))
-    vY = permutedims(vY)
-    return Σ \ (Kfu' * (Λ \ vY))
-end
-
-
 ###
 # Struct that contains everything needed for prediction
 ###
@@ -114,3 +57,66 @@ function (sgp::SparseGP)(x::Array{T,1}) where T <: Real
     ker = sgp.kernel
     Kx = kernelmatrix(ker, [x], Z)
 end
+
+
+
+###
+# GP model, that contains the sparse GP object with all necessary data, and 
+struct GPmodel{SGP <: SparseGP, T<:Real}
+    sgp::SGP
+    KinvU::Array{T,2}
+end 
+
+# maybe with data
+function GPmodel(sgp::SparseGP)
+    KiU = computeKinvU(sgp)
+    GPmodel(sgp, KiU)
+end
+
+function (gpm::GPmodel)(x)
+    Kx = gpm.sgp(x)
+    return (Kx * gpm.KinvU)[:]
+end
+
+
+####
+# functions to facilitate efficient computation, as per Q-C&R
+function computeKinvU(sgp::SparseGP)
+    return _computeKinvU(sgp, sgp.inP)
+end
+
+function _computeKinvU(sgp::SparseGP, indP::NTuple{2, Array{<:Array{<:Real,1},1}}) 
+    Z = indP[1]
+    U = indP[2]
+#     vU = reduce(vcat, U)
+    # ToDo: might have to make output(?) dimensions more explicit
+    vU = reshape(reduce(vcat, U), :, length(Z)*length(Z[1]))
+    vU = permutedims(vU)
+    ker = sgp.kernel
+    K = kernelmatrix(ker, Z)
+    return K \ vU
+end
+
+function _computeKinvU(sgp::SparseGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}}) 
+    Z = indP[1]
+    X = indP[2]
+    Y = indP[3]
+    ker = sgp.kernel
+    
+    Kff = kernelmatrix(ker, X)
+    Kfu = kernelmatrix(ker, X, Z)
+    Kuu = kernelmatrix(ker, Z)
+    
+    Qff = Kfu * ( Kuu \ Kfu' )
+    
+    noise = sgp.σ_n
+    Λ = diagm(diag( Kff - Qff) .+ noise)
+    
+    Σ = Kuu + Kfu' * (Λ \ Kfu)
+    
+    vY = reshape(reduce(vcat, Y), :, length(X)*length(X[1]))
+    vY = permutedims(vY)
+    return Σ \ (Kfu' * (Λ \ vY))
+end
+
+
