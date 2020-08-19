@@ -47,7 +47,7 @@ end
 
 #ToDo: Update σ_n in this object
 
-zeromean(x) = fill(0, size(X,2))
+zeromean(x) = fill(0, size(x))
 identitytrafo(x) = x
 
 function SparseGP(kernel, Z, U; σ_n = 1e-6, mean = zeromean, trafo = identitytrafo)
@@ -56,7 +56,7 @@ function SparseGP(kernel, Z, U; σ_n = 1e-6, mean = zeromean, trafo = identitytr
     SparseGP{typeof(kernel), typeof(σ_n), N, typeof(indP)}(kernel, σ_n, indP, mean, trafo)
 end
 function SparseGP(kernel, Z, X, Y; σ_n = 1e-6, mean = zeromean, trafo = identitytrafo)
-    indP = (Z, X, Y)
+    indP = (trafo.(Z), trafo.(X), Y)
     N = length(indP)
     SparseGP{typeof(kernel), typeof(σ_n), N, typeof(indP)}(kernel, σ_n, indP, mean, trafo)
 end
@@ -89,8 +89,9 @@ function GPmodel(sgp::SparseGP)
 end
 
 function (gpm::GPmodel)(x)
-    Kx = gpm.sgp(x)
-    return (Kx * gpm.KinvU)[:]
+    Kx = gpm.sgp(gpm.sgp.trafo(x))
+    μ = gpm.sgp.mean
+    return (μ(x) .+ (Kx * gpm.KinvU))[:]
 end
 
 
@@ -104,6 +105,8 @@ function _computeKinvU(sgp::SparseGP, indP::NTuple{2, Array{<:Array{<:Real,1},1}
     Z = indP[1]
     U = indP[2]
     σ_n = sgp.σ_n
+    μ = sgp.mean
+    U = U .- μ.(Z)
 #     vU = reduce(vcat, U)
     # ToDo: might have to make output(?) dimensions more explicit
     vU = reshape(reduce(vcat, U), :, length(Z)*length(Z[1]))
