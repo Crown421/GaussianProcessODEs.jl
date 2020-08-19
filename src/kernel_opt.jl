@@ -1,5 +1,5 @@
 
-export train_gpmodel
+export train_sparsegp
 
 
 #####
@@ -16,10 +16,20 @@ end
 
 function _loglikelihood(logw, kernel, X, Y, σ_n)
     w = exp.(logw)
-    vY = reshape(reduce(vcat, data.Y), :, length(X)*length(X[1]))
+    vY = reshape(reduce(vcat, Y), :, length(X)*length(X[1]))
     
     ker = kernel(w)
     K = kernelmatrix(ker, X) + σ_n*I
+
+    #     Zygote.ignore() do
+#         if ~isposdef(K)
+#             println("step")
+#             println("logw: $logw")
+#             println("w: $w")
+#             println("went bad")
+#         end
+#     end
+
     Kchol = cholesky(K)
     
     fitTerm = 1/2 * mapreduce(y -> y' * (Kchol \ y), +, eachrow(vY))
@@ -115,11 +125,11 @@ struct VLB <: SparseGPMethod end
 # have this dispatch on LL/ elbo object
 
 function define_objective(sgp::SGP; method::M = FITC(), grad = false) where {SGP <: SparseGP, M <: SparseGPMethod}
-    return _define_objective(sgp, method, grad)
+    return _define_objective(sgp, sgp.inP, method, grad)
 end
 
-function _define_objective(sgp::SGP, method::FITC, grad = false) where {SGP <: SparseGP}
-    c(logw) = _loglikelihood(logw, sgp, sgp.inP)
+function _define_objective(sgp::SGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}}, method::FITC, grad = false) where {SGP <: SparseGP}
+    c(logw) = _loglikelihood(logw, sgp, indP)
     if grad
         g(G,logw) = _llgrad(G, logw, sgp)
         return (c,g)
@@ -128,9 +138,19 @@ function _define_objective(sgp::SGP, method::FITC, grad = false) where {SGP <: S
     end
 end
 
+function _define_objective(sgp::SGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}},method::VLB, grad = false) where {SGP <: SparseGP}
+    c(logw) = _variational_lowerbound(logw, sgp, indP)
+    if grad
+        g(G,logw) = _vlbgrad(G, logw, sgp)
+        return (c,g)
+    else
+        return c
+    end
+end
 
-function _define_objective(sgp::SGP, method::VLB, grad = false) where {SGP <: SparseGP}
-    c(logw) = _variational_lowerbound(logw, sgp, sgp.inP)
+function _define_objective(sgp::SGP, indP::NTuple{2, Array{<:Array{<:Real,1},1}},method, grad = false) where {SGP <: SparseGP}
+    # consider warning if non-default method is passed? Stating that it will be ignored?
+    c(logw) = _loglikelihood(logw, sgp, indP)
     if grad
         g(G,logw) = _vlbgrad(G, logw, sgp)
         return (c,g)
@@ -144,7 +164,7 @@ end
 #####
 # training function
 #### 
-function train_gpmodel(sgp::SGP; show_opt = false, method::M = FITC1(), grad = false) where {SGP <: SparseGP, M <: SparseGPMethod}
+function train_sparsegp(sgp::SGP; show_opt = false, method::M = FITC(), grad = false) where {SGP <: SparseGP, M <: SparseGPMethod}
     ker = sgp.kernel
     obj = define_objective(sgp; method = method, grad = grad)
     optres = optimize(obj, log.(getparam(ker)))
