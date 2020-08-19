@@ -1,45 +1,63 @@
 export getborders
 export gradient_observations, gradient_data
 
+
 # TODO: possibly make smarter
 function getborders(y)
     [[minimum(getindex.(y.u, 1))-0.2, maximum(getindex.(y.u, 1))+0.2], [minimum(getindex.(y.u, 2))-0.2, maximum(getindex.(y.u, 2))+0.2] ]
 end
 
-function _gradient_observations(sgp::SparseGP, indP::NTuple{2, Array{<:Array{<:Real,1},1}}) 
+function _gradient_observations(sgp::SparseGP, KiU, indP::NTuple{2, Array{<:Array{<:Real,1},1}}) 
     X = indP[1]
     if length(X[1]) > 1
         error("gradient observations only available for 1D inputs")
     end
-    Y = indP[2]
     X = reduce(vcat, X)
     ker = sgp.kernel
     σ_n = sgp.σ_n
     
     dker(t1,t2) = gradient(t1->ker(t1,t2), t1)[1]
     dK = dker.(X, permutedims(X))
-    K = kernelmatrix(ker, X') + σ_n*I
-    # Kchol = cholesky(K)
 
-    D = dK/K
-    tmp = reduce(hcat,Y)
-    gpdode = D * permutedims(tmp)
-    return [dx[:] for dx in eachrow(gpdode)]
+    KiU = computeKinvU(sgp)
+
+    gpdode = dK * KiU
+    dY = [dx[:] for dx in eachrow(gpdode)]
+    return dY
 end
 
-function gradient_observations(sgp::SparseGP)
-    return _gradient_observations(sgp, sgp.inP)
+function gradient_observations(gpm::GPmodel)
+    sgp = gpm.sgp
+    KiU = gpm.KinvU
+    return _gradient_observations(sgp, KiU, sgp.inP)
 end
 
 
+"""
+    gradient_data(traj, kernel = pskernel(ones(2)); show_opt = false)
+
+Trains a kernel, builds a GPmodel, and then computes the gradients at the data points.
+
+# Basic code
+```julia-repl
+traj_sgp = SparseGP(kernel, X, Y)
+traj_sgp = train_sparsegp(traj_sgp; show_opt = show_opt)
+
+gpmodel = GPmodel(traj_sgp)
+
+dY = gradient_observations(gpmodel)
+```
+"""
 function gradient_data(traj, kernel = pskernel(ones(2)); show_opt = false)
     X = [ [x] for x in traj.t]
     Y = [ y for y in traj.u]
     
     traj_sgp = SparseGP(kernel, X, Y)
     traj_sgp = train_sparsegp(traj_sgp; show_opt = show_opt)
+
+    gpmodel = GPmodel(traj_sgp)
     
-    dY = gradient_observations(traj_sgp)
+    dY = gradient_observations(gpmodel)
     return (X=Y, Y=dY)
 end
 

@@ -89,12 +89,13 @@ end
 function _computeKinvU(sgp::SparseGP, indP::NTuple{2, Array{<:Array{<:Real,1},1}}) 
     Z = indP[1]
     U = indP[2]
+    σ_n = sgp.σ_n
 #     vU = reduce(vcat, U)
     # ToDo: might have to make output(?) dimensions more explicit
     vU = reshape(reduce(vcat, U), :, length(Z)*length(Z[1]))
     vU = permutedims(vU)
     ker = sgp.kernel
-    K = kernelmatrix(ker, Z)
+    K = kernelmatrix(ker, Z) + σ_n * I
     return K \ vU
 end
 
