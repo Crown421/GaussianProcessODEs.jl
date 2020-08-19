@@ -11,7 +11,8 @@ function pskernel(w, ker::K = SqExponentialKernel()) where K <: Kernel
 end
 
 function psmkernel(dims::Int)
-    return uncoupledMKernel(pskernel(ones(dims+1)), Diagonal(ones(dims)) )
+    w = ones(dims+1) + 0.4*(rand(dims+1).-0.5) 
+    return uncoupledMKernel(pskernel(w), Diagonal(ones(dims)) )
 end
 
 

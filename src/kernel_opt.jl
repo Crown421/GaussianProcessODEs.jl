@@ -1,5 +1,6 @@
 
 export train_sparsegp, train
+export FITC, VLB
 
 
 #####
@@ -107,9 +108,10 @@ function _variational_lowerbound(logw, kernel, Z, X, Y, σ_n)
     QSChol = cholesky(Qff + Λ)
     T = Kff - Qff
     
+    nrY = size(vY, 1)
     fitTerm = 1/2 * mapreduce(y -> y' * (QSChol \ y), +, eachrow(vY))
-    detTerm = 2* sum(log.(diag(QSChol.L)))
-    traceTerm = 1/(2*σ_n^2) * tr(T)
+    detTerm = nrY * sum(log.(diag(QSChol.L)))
+    traceTerm = nrY/(2*σ_n) * tr(T)
     return fitTerm + detTerm + traceTerm
 end
 
