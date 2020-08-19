@@ -1,5 +1,5 @@
 
-export train_sparsegp
+export train_sparsegp, train
 
 
 #####
@@ -64,8 +64,9 @@ function _loglikelihood(logw, kernel, Z, X, Y, σ_n)
     Λ = Diagonal(diag( Kff - Qff) .+ σ_n)
     QSChol = cholesky(Qff + Λ)
     
+    nrY = size(vY, 1)
     fitTerm = 1/2 * mapreduce(y -> y' * (QSChol \ y), +, eachrow(vY))
-    detTerm = 2* sum(log.(diag(QSChol.L)))
+    detTerm = nrY* sum(log.(diag(QSChol.L)))
     return fitTerm + detTerm
 end
 
@@ -164,10 +165,11 @@ end
 #####
 # training function
 #### 
-function train_sparsegp(sgp::SGP; show_opt = false, method::M = FITC(), grad = false) where {SGP <: SparseGP, M <: SparseGPMethod}
+function train_sparsegp(sgp::SGP; 
+    show_opt = false, method::M = FITC(), grad = false, options = Optim.Options()) where {SGP <: SparseGP, M <: SparseGPMethod}
     ker = sgp.kernel
     obj = define_objective(sgp; method = method, grad = grad)
-    optres = optimize(obj, log.(getparam(ker)))
+    optres = optimize(obj, log.(getparam(ker)), options )
     wopt = exp.(optres.minimizer)
     if show_opt
         display(optres)
@@ -177,3 +179,23 @@ function train_sparsegp(sgp::SGP; show_opt = false, method::M = FITC(), grad = f
     
     return typeof(sgp)(optker, sgp.σ_n, sgp.inP, sgp.mean, sgp.trafo)
 end
+
+
+function train(gpm::GPM; 
+    show_opt = false, method::M = FITC(), grad = false, options = Optim.Options()) where {GPM <: GPmodel, M <: SparseGPMethod}
+
+    sgp = gpm.sgp
+    optsgp = train_sparsegp(sgp; show_opt, method, grad, options)
+    return GPmodel(optsgp)
+end
+
+function train(gpode::GPO; 
+    show_opt = false, method::M = FITC(), grad = false, options = Optim.Options()) where {GPO <: GPODE, M <: SparseGPMethod}
+
+    sgp = gpode.model.sgp
+    optsgp = train_sparsegp(sgp; show_opt, method, grad, options)
+    
+    return GPODE(optsgp,gpode.tspan,gpode.args...,gpode.kwargs...)
+end
+
+

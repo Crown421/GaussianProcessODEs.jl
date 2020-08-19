@@ -1,6 +1,6 @@
 import KernelFunctions: kernelmatrix
 
-export pskernel
+export pskernel, psmkernel
 export getparam
 ###
 # simple constructor for a parametric scalar kernel
@@ -8,6 +8,10 @@ export getparam
 function pskernel(w, ker::K = SqExponentialKernel()) where K <: Kernel
     l = 1/sqrt(2.0) ./ w[2:end]
     w[1]*TransformedKernel(ker,ARDTransform(l))
+end
+
+function psmkernel(dims::Int)
+    return uncoupledMKernel(pskernel(ones(dims+1)), Diagonal(ones(dims)) )
 end
 
 
@@ -45,6 +49,12 @@ end
 function getparam(ker)
     res = getparam.(getfield.(Ref(ker), fieldnames(typeof(ker))))
     return reduce(vcat, reverse(res))
+end
+
+function getparam(ker::K) where K <: KronMatrixKernel
+    kernels = ker.kernels
+    params = getparam.(kernels)
+    return reduce(vcat, params)
 end
 
 function getparam(mker::K) where K <: MatrixKernel

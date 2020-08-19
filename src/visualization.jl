@@ -25,3 +25,15 @@ function plotsolutions(refsol, compsol)
     end
     p
 end
+
+
+
+# function plotsol(sols::NTuple{N, ODESolution}, names, vars) where N
+#     sol = sols[1]
+#     colors = ([:royalblue3 :deepskyblue2], [:firebrick :salmon1], [:darkgoldenrod :mediumseagreen])
+    
+#     p = plot(size = (1100, 450), layout = (1,2))
+#     for i in 1:length(sols)
+#         plot!(p, sols[i]; color = colors[i], linewidth = 2, label = names[i] .* string.(vars), subplot = 1)
+#     end 
+# end

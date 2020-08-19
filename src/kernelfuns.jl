@@ -17,9 +17,19 @@ abstract type MatrixKernel <: kerneltype end
 abstract type KronMatrixKernel <: kerneltype  end
 
 
-struct uncoupledMKernel{N, K<:NTuple{N, Kernel}, Qt <: NTuple{N, Array{<:Real, 2}} } <: KronMatrixKernel 
+struct uncoupledMKernel{N, K<:NTuple{N, Kernel}, Qt <: NTuple{N, AbstractArray{<:Real, 2}} } <: KronMatrixKernel 
     kernels::K
     Q::Qt
+end
+
+function uncoupledMKernel(K::KT, Q::QT) where {KT<:Kernel, QT <: AbstractArray{<:Real, 2} }
+    return uncoupledMKernel((K,), (Q,))
+end
+
+function uncoupledMKernel(w::Array{T, 1}) where T<:Real
+    K = (pskernel(w),)
+    Q = (Diagonal(ones(length(w)-1)),)
+    return uncoupledMKernel(K,Q)
 end
 
 # evaluate

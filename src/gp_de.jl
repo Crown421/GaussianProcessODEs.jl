@@ -1,22 +1,36 @@
-export SparseGP
+export SparseGP, GPmodel, GPODE
 
 # https://github.com/SciML/DiffEqFlux.jl/blob/c59971fd4d3ee84aff39f88b7073d7e8cf51c34c/src/neural_de.jl#L38
-# basic_tgrad(u,p,t) = zero(u)
+basic_tgrad(u,p,t) = zero(u)
 
 
-# struct GPODE{M,P,RE,T,A,K} <: NeuralDELayer
-#     model::M
-#     p::P
-#     tspan::T
-#     args::A
-#     kwargs::K
+struct GPODE{M<:GPmodel,T,A,K} #<: NeuralDELayer
+    model::M
+    # p::P, maybe one day
+    tspan::T
+    args::A
+    kwargs::K
 
-#     function GPODE(model,tspan,args...;p = initial_params(model),kwargs...)
-#         new{typeof(model),typeof(p),typeof(re),
-#             typeof(tspan),typeof(args),typeof(kwargs)}(
-#             model,p,tspan,args,kwargs)
-#     end
-# end
+    function GPODE(model::GPM,tspan,args...; kwargs...) where GPM <: GPmodel
+        new{typeof(model),typeof(tspan),typeof(args),typeof(kwargs)}(
+            model,tspan,args,kwargs)
+    end
+end
+
+function GPODE(sgp::SGP,tspan,args...;kwargs...) where SGP <: SparseGP
+    gpm = GPmodel(sgp)
+    return GPODE(gpm,tspan,args...,kwargs...)
+end
+
+function (gp::GPODE)(x)
+    dudt_(u,p,t) = gp.model(u)
+    ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
+    prob = ODEProblem{false}(ff,x,getfield(gp,:tspan))
+    solve(prob,gp.args...;gp.kwargs...)
+end
+
+
+
 
 
 ###
