@@ -12,6 +12,8 @@ using KernelFunctions
 include("kernelfuns.jl")
 include("types.jl")
 include("kernelutils.jl")
+include("gp_de.jl")
+include("kernel_opt.jl")
 
 include("opt.jl")
 include("base.jl")

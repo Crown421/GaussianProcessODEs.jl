@@ -3,16 +3,114 @@
 basic_tgrad(u,p,t) = zero(u)
 
 
-struct GPODE{M,P,RE,T,A,K} <: NeuralDELayer
-    model::M
-    p::P
-    tspan::T
-    args::A
-    kwargs::K
+# struct GPODE{M,P,RE,T,A,K} <: NeuralDELayer
+#     model::M
+#     p::P
+#     tspan::T
+#     args::A
+#     kwargs::K
 
-    function GPODE(model,tspan,args...;p = initial_params(model),kwargs...)
-        new{typeof(model),typeof(p),typeof(re),
-            typeof(tspan),typeof(args),typeof(kwargs)}(
-            model,p,tspan,args,kwargs)
-    end
+#     function GPODE(model,tspan,args...;p = initial_params(model),kwargs...)
+#         new{typeof(model),typeof(p),typeof(re),
+#             typeof(tspan),typeof(args),typeof(kwargs)}(
+#             model,p,tspan,args,kwargs)
+#     end
+# end
+
+
+
+###
+# GP model, that contains the sparse GP object with all necessary data, and 
+struct GPmodel{SGP <: SparseGP, T<:Real}
+    sgp::SGP
+    KinvU::Array{T,2}
+end 
+
+# maybe with data
+function GPmodel(sgp::SparseGP)
+    KiU = computeKinvU(sgp)
+    GPmodel(sgp, KiU)
+end
+
+function (gpm::GPmodel)(x)
+    Kx = gpm.sgp(x)
+    return (Kx * gpm.KinvU)[:]
+end
+
+
+####
+# functions to facilitate efficient computation, as per Q-C&R
+function computeKinvU(sgp::SparseGP, indP::NTuple{2, Array{<:Array{<:Real,1},1}} = sgp.inP ) 
+    Z = indP[1]
+    U = indP[2]
+#     vU = reduce(vcat, U)
+    # ToDo: might have to make output(?) dimensions more explicit
+    vU = reshape(reduce(vcat, U), :, length(Z)*length(Z[1]))
+    vU = permutedims(vU)
+    ker = sgp.kernel
+    K = kernelmatrix(ker, Z)
+    return K \ vU
+end
+
+function computeKinvU(sgp::SparseGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}} = sgp.inP ) 
+    Z = indP[1]
+    X = indP[2]
+    Y = indP[3]
+    ker = sgp.kernel
+    
+    Kff = kernelmatrix(ker, X)
+    Kfu = kernelmatrix(ker, X, Z)
+    Kuu = kernelmatrix(ker, Z)
+    
+    Qff = Kfu * ( Kuu \ Kfu' )
+    
+    noise = sgp.σ_n
+    Λ = diagm(diag( Kff - Qff) .+ noise)
+    
+    Σ = Kuu + Kfu' * (Λ \ Kfu)
+    
+    vY = reshape(reduce(vcat, Y), :, length(X)*length(X[1]))
+    vY = permutedims(vY)
+    return Σ \ (Kfu' * (Λ \ vY))
+end
+
+
+###
+# Struct that contains everything needed for prediction
+###
+struct SparseGP{K, T<:Real, N, A<: NTuple{N, Array{<:Array{<:Real,1},1}}}
+    kernel::K
+    σ_n::T
+    inP::A
+    mean::Function
+    trafo::Function
+    # type? FITC, SOR, PITC
+end
+
+#ToDo: Update σ_n in this object
+
+zeromean(x) = fill(0, size(X,2))
+identitytrafo(x) = x
+
+function SparseGP(kernel, Z, U; σ_n = 1e-6, mean = zeromean, trafo = identitytrafo)
+    indP = (Z, U)
+    N = length(indP)
+    SparseGP{typeof(kernel), typeof(σ_n), N, typeof(indP)}(kernel, σ_n, indP, mean, trafo)
+end
+function SparseGP(kernel, Z, X, Y; σ_n = 1e-6, mean = zeromean, trafo = identitytrafo)
+    indP = (Z, X, Y)
+    N = length(indP)
+    SparseGP{typeof(kernel), typeof(σ_n), N, typeof(indP)}(kernel, σ_n, indP, mean, trafo)
+end
+
+function (sgp::SparseGP)(x::T) where T <: Real
+    Z = sgp.inP[1]
+    ker = sgp.kernel
+    Kx = kernelmatrix(ker, [[x]], Z)
+end
+
+function (sgp::SparseGP)(x::Array{T,1}) where T <: Real
+    Z = sgp.inP[1]
+    ker = sgp.kernel
+    Kx = kernelmatrix(ker, [x], Z)
 end

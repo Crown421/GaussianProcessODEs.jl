@@ -1,5 +1,16 @@
 import KernelFunctions: kernelmatrix
 
+export pskernel
+export getparam
+###
+# simple constructor for a parametric scalar kernel
+###
+function pskernel(w, ker::K = SqExponentialKernel()) where K <: Kernel
+    l = 1/sqrt(2.0) ./ w[2:end]
+    w[1]*TransformedKernel(ker,ARDTransform(l))
+end
+
+
 #####
 # create new kernel with updated parameters
 # currently limited functions

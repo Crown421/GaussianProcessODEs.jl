@@ -39,7 +39,7 @@ end
 struct npODE{T<:kernel}
     U::Array{Float64,1}
     kernel::T
-    KiU::Array{Float64,2}
+    KiU::Array{Float64,2} 
     
     function npODE{T}(vU, kernel) where T<:kernel
         KiU = kernel.Kchol \ vU
