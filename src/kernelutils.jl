@@ -15,6 +15,11 @@ function psmkernel(dims::Int)
     return uncoupledMKernel(pskernel(w), Diagonal(ones(dims)) )
 end
 
+function psmkernel(w::Array{T,1}) where T <: Real
+    dims = length(w) - 1
+    return uncoupledMKernel(pskernel(w), Diagonal(ones(dims)) )
+end
+
 
 #####
 # create new kernel with updated parameters

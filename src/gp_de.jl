@@ -17,15 +17,17 @@ end
 
 #ToDo: Update σ_n in this object
 
-zeromean(x) = fill(0, size(x))
+function zeromean(n) 
+    return x -> fill(0, n)
+end
 identitytrafo(x) = x
 
-function SparseGP(kernel, Z, U; σ_n = 1e-6, mean = zeromean, trafo = identitytrafo)
-    indP = (Z, U)
+function SparseGP(kernel, Z, U; σ_n = 1e-6, mean = zeromean(length(U[1])), trafo = identitytrafo)
+    indP = (trafo.(Z), U)
     N = length(indP)
     SparseGP{typeof(kernel), typeof(σ_n), N, typeof(indP)}(kernel, σ_n, indP, mean, trafo)
 end
-function SparseGP(kernel, Z, X, Y; σ_n = 1e-6, mean = zeromean, trafo = identitytrafo)
+function SparseGP(kernel, Z, X, Y; σ_n = 1e-6, mean = zeromean(length(Y[1])), trafo = identitytrafo)
     indP = (trafo.(Z), trafo.(X), Y)
     N = length(indP)
     SparseGP{typeof(kernel), typeof(σ_n), N, typeof(indP)}(kernel, σ_n, indP, mean, trafo)
@@ -90,6 +92,8 @@ function _computeKinvU(sgp::SparseGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}
     Z = indP[1]
     X = indP[2]
     Y = indP[3]
+    μ = sgp.mean
+    Y = Y .- μ.(X)
     ker = sgp.kernel
     
     Kff = kernelmatrix(ker, X)
