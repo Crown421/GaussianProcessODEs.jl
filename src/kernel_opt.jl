@@ -197,7 +197,7 @@ function train(gpode::GPO;
     sgp = gpode.model.sgp
     optsgp = train_sparsegp(sgp; show_opt, method, grad, options)
     
-    return GPODE(optsgp,gpode.tspan,gpode.args...,gpode.kwargs...)
+    return GPODE(GPmodel(optsgp),gpode.tspan,gpode.args...; gpode.kwargs...)
 end
 
 

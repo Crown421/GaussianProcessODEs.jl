@@ -1,7 +1,7 @@
 #
 export expKernel, rotexpKernel
 export computeK # should probably not be exported
-export uncoupledMKernel, GIMKernel, rotKernel
+export uncoupledMKernel, GIMKernel, rotKernel, KeplerKernel
 
 export keplerKernel
 
@@ -52,8 +52,6 @@ function (mker::uncoupledMKernel)(w::Array{<:Real, 1})
     K = map( (k,w) -> k(w), K, indw)
     typeof(mker)(K, mker.Q)
 end
-
-
 
 
 
@@ -131,11 +129,63 @@ end
 
 # reparametize
 # there is numerical issues
-function (mker::npODEs.rotKernel)(w::Array{T, 1}) where {T <: Real}
+function (mker::rotKernel)(w::Array{T, 1}) where {T <: Real}
     l = vcat(w[1:2], w[2])
     typeof(mker)(mker.kernel(l), mker.gkparams)
 end
 
+function getparam(mker::rotKernel) #where K <: MatrixKernel
+    w = getparam(mker.kernel)
+    return w[[1,2]]
+end
+
+
+
+###
+# Specialized implementation for kepler system kernel
+struct KeplerKernel{K <: KernelFunctions.Kernel, GKP }  <: MatrixKernel
+    kernel::K
+    gkparams::GKP
+end
+
+# constructor
+function KeplerKernel(ker::K; N::Int) where K
+    gkparams = NamedTuple{(:x, :weights)}(gauss(N, 0, 2pi))
+    KeplerKernel{K, typeof(gkparams)}(ker, gkparams)
+end
+
+# group action
+keplerrot(phi, x) = vcat(rot(phi)*x[1:2], rot(phi)*x[3:4])
+
+# evaluation
+function (rk::KeplerKernel)(z1, z2)
+    gkp = rk.gkparams 
+    ker = rk.kernel
+
+    base = map(x -> ker(z1, keplerrot(x, z2) ), gkp.x) .* gkp.weights 
+    costerm = sum(base .* cos.(gkp.x) )
+    if z1 == z2
+        sinterm = 0.
+    else
+        sinterm = sum(base .* sin.(gkp.x) )
+    end
+    return [costerm -sinterm 0 0;
+        sinterm costerm 0 0;
+        0 0 costerm -sinterm;
+        0 0 sinterm costerm]
+end
+
+# reparametize
+# there is numerical issues
+function (mker::KeplerKernel)(w::Array{T, 1}) where {T <: Real}
+    l = vcat(w[1:2], w[2], w[3], w[3])
+    typeof(mker)(mker.kernel(l), mker.gkparams)
+end
+
+function getparam(mker::KeplerKernel) #where K <: MatrixKernel
+    w = getparam(mker.kernel)
+    return w[[1,2,4]]
+end
 
 
 ### Old stuff
