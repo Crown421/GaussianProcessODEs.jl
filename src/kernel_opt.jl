@@ -22,14 +22,14 @@ function _loglikelihood(logw, kernel, X, Y, σ_n)
     ker = kernel(w)
     K = kernelmatrix(ker, X) + σ_n*I
 
-    #     Zygote.ignore() do
-#         if ~isposdef(K)
-#             println("step")
-#             println("logw: $logw")
-#             println("w: $w")
-#             println("went bad")
-#         end
-#     end
+    Zygote.ignore() do
+        if ~isposdef(K)
+            println("step")
+            println("logw: $logw")
+            println("w: $w")
+            println("went bad")
+        end
+    end
 
     Kchol = cholesky(K)
     
@@ -63,7 +63,18 @@ function _loglikelihood(logw, kernel, Z, X, Y, σ_n)
     
     Qff = Symmetric(Kfu * ( Kuu \ Kfu' ))
     Λ = Diagonal(diag( Kff - Qff) .+ σ_n)
-    QSChol = cholesky(Qff + Λ)
+    QS = Qff + Λ
+
+    Zygote.ignore() do
+        if ~isposdef(QS)
+            println("step")
+            println("logw: $logw")
+            println("w: $w")
+            println("went bad")
+        end
+    end
+
+    QSChol = cholesky(QS)
     
     nrY = size(vY, 1)
     fitTerm = 1/2 * mapreduce(y -> y' * (QSChol \ y), +, eachrow(vY))
@@ -105,7 +116,18 @@ function _variational_lowerbound(logw, kernel, Z, X, Y, σ_n)
     
     Qff = Symmetric(Kfu * ( Kuu \ Kfu' ))
     Λ =  σ_n*I
-    QSChol = cholesky(Qff + Λ)
+    QS = Qff + Λ
+
+    Zygote.ignore() do
+        if ~isposdef(QS)
+            println("step")
+            println("logw: $logw")
+            println("w: $w")
+            println("went bad")
+        end
+    end
+
+    QSChol = cholesky(QS)
     T = Kff - Qff
     
     nrY = size(vY, 1)
@@ -121,14 +143,10 @@ function _vlbgrad(G, logw, sgp)
     G[:] = tmp[1]
 end
 
-
-abstract type SparseGPMethod end
-struct FITC <: SparseGPMethod end
-struct VLB <: SparseGPMethod end
 # have this dispatch on LL/ elbo object
 
-function define_objective(sgp::SGP; method::M = FITC(), grad = false) where {SGP <: SparseGP, M <: SparseGPMethod}
-    return _define_objective(sgp, sgp.inP, method, grad)
+function define_objective(sgp::SGP; grad = false) where {SGP <: SparseGP, M <: SparseGPMethod}
+    return _define_objective(sgp, sgp.inP, sgp.method, grad)
 end
 
 function _define_objective(sgp::SGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}}, method::FITC, grad = false) where {SGP <: SparseGP}
@@ -141,7 +159,7 @@ function _define_objective(sgp::SGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}}
     end
 end
 
-function _define_objective(sgp::SGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}},method::VLB, grad = false) where {SGP <: SparseGP}
+function _define_objective(sgp::SGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}}, method::VLB, grad = false) where {SGP <: SparseGP}
     c(logw) = _variational_lowerbound(logw, sgp, indP)
     if grad
         g(G,logw) = _vlbgrad(G, logw, sgp)
@@ -151,7 +169,7 @@ function _define_objective(sgp::SGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}}
     end
 end
 
-function _define_objective(sgp::SGP, indP::NTuple{2, Array{<:Array{<:Real,1},1}},method, grad = false) where {SGP <: SparseGP}
+function _define_objective(sgp::SGP, indP::NTuple{2, Array{<:Array{<:Real,1},1}}, method, grad = false) where {SGP <: SparseGP}
     # consider warning if non-default method is passed? Stating that it will be ignored?
     c(logw) = _loglikelihood(logw, sgp, indP)
     if grad
@@ -168,9 +186,9 @@ end
 # training function
 #### 
 function train_sparsegp(sgp::SGP; 
-    show_opt = false, method::M = FITC(), grad = false, options = Optim.Options()) where {SGP <: SparseGP, M <: SparseGPMethod}
+    show_opt = false, grad = false, options = Optim.Options()) where {SGP <: SparseGP, M <: SparseGPMethod}
     ker = sgp.kernel
-    obj = define_objective(sgp; method = method, grad = grad)
+    obj = define_objective(sgp; grad = grad)
     optres = optimize(obj, log.(getparam(ker)), options )
     wopt = exp.(optres.minimizer)
     if show_opt
@@ -179,23 +197,23 @@ function train_sparsegp(sgp::SGP;
     end
     optker = ker(wopt)
     
-    return typeof(sgp)(optker, sgp.σ_n, sgp.inP, sgp.mean, sgp.trafo)
+    return typeof(sgp)(optker, sgp.σ_n, sgp.inP, sgp.mean, sgp.trafo, sgp.method)
 end
 
 
 function train(gpm::GPM; 
-    show_opt = false, method::M = FITC(), grad = false, options = Optim.Options()) where {GPM <: GPmodel, M <: SparseGPMethod}
+    show_opt = false, grad = false, options = Optim.Options()) where {GPM <: GPmodel, M <: SparseGPMethod}
 
     sgp = gpm.sgp
-    optsgp = train_sparsegp(sgp; show_opt, method, grad, options)
+    optsgp = train_sparsegp(sgp; show_opt, grad, options)
     return GPmodel(optsgp)
 end
 
 function train(gpode::GPO; 
-    show_opt = false, method::M = FITC(), grad = false, options = Optim.Options()) where {GPO <: GPODE, M <: SparseGPMethod}
+    show_opt = false, grad = false, options = Optim.Options()) where {GPO <: GPODE, M <: SparseGPMethod}
 
     sgp = gpode.model.sgp
-    optsgp = train_sparsegp(sgp; show_opt, method, grad, options)
+    optsgp = train_sparsegp(sgp; show_opt, grad, options)
     
     return GPODE(GPmodel(optsgp),gpode.tspan,gpode.args...; gpode.kwargs...)
 end

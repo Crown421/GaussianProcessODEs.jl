@@ -178,6 +178,7 @@ end
 # reparametize
 # there is numerical issues
 function (mker::KeplerKernel)(w::Array{T, 1}) where {T <: Real}
+    # l = vcat(w[1:2], w[2], w[2], w[2])
     l = vcat(w[1:2], w[2], w[3], w[3])
     typeof(mker)(mker.kernel(l), mker.gkparams)
 end
@@ -185,6 +186,7 @@ end
 function getparam(mker::KeplerKernel) #where K <: MatrixKernel
     w = getparam(mker.kernel)
     return w[[1,2,4]]
+    # return w[[1,2]]
 end
 
 

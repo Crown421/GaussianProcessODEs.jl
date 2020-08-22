@@ -2,16 +2,21 @@ export SparseGP, GPmodel, GPODE
 
 # https://github.com/SciML/DiffEqFlux.jl/blob/c59971fd4d3ee84aff39f88b7073d7e8cf51c34c/src/neural_de.jl#L38
 
+abstract type SparseGPMethod end
+struct FITC <: SparseGPMethod end
+struct VLB <: SparseGPMethod end
+struct Vanilla <: SparseGPMethod end
 
 ###
 # Struct that contains everything needed for prediction
 ###
-struct SparseGP{K, T<:Real, N, A<: NTuple{N, Array{<:Array{<:Real,1},1}}}
+struct SparseGP{K, T<:Real, N, A<: NTuple{N, Array{<:Array{<:Real,1},1}}, M<:SparseGPMethod}
     kernel::K
     σ_n::T
     inP::A
     mean::Function
     trafo::Function
+    method::M
     # type? FITC, SOR, PITC
 end
 
@@ -22,15 +27,15 @@ function zeromean(n)
 end
 identitytrafo(x) = x
 
-function SparseGP(kernel, Z, U; σ_n = 1e-6, mean = zeromean(length(U[1])), trafo = identitytrafo)
+function SparseGP(kernel, Z, U; σ_n = 1e-6, mean = zeromean(length(U[1])), trafo = identitytrafo, method = Vanilla())
     indP = (trafo.(Z), U)
     N = length(indP)
-    SparseGP{typeof(kernel), typeof(σ_n), N, typeof(indP)}(kernel, σ_n, indP, mean, trafo)
+    SparseGP{typeof(kernel), typeof(σ_n), N, typeof(indP), typeof(method)}(kernel, σ_n, indP, mean, trafo, method)
 end
-function SparseGP(kernel, Z, X, Y; σ_n = 1e-6, mean = zeromean(length(Y[1])), trafo = identitytrafo)
+function SparseGP(kernel, Z, X, Y; σ_n = 1e-6, mean = zeromean(length(Y[1])), trafo = identitytrafo, method = FITC())
     indP = (trafo.(Z), trafo.(X), Y)
     N = length(indP)
-    SparseGP{typeof(kernel), typeof(σ_n), N, typeof(indP)}(kernel, σ_n, indP, mean, trafo)
+    SparseGP{typeof(kernel), typeof(σ_n), N, typeof(indP), typeof(method)}(kernel, σ_n, indP, mean, trafo, method)
 end
 
 function (sgp::SparseGP)(x::T) where T <: Real
@@ -66,14 +71,42 @@ function (gpm::GPmodel)(x)
     return (μ(x) .+ (Kx * gpm.KinvU))[:]
 end
 
+function (gpm::GPmodel)(xv::MS) where MS  <: Array{<:Measurement{<:Real}, 1}
+    x = getfield.(xv, :val)
+    Kx = gpm.sgp(gpm.sgp.trafo(x))
+    μ = gpm.sgp.mean
+    m =  (μ(x) .+ (Kx * gpm.KinvU))[:]
+    
+    Z = gpm.sgp.inP[1]
+    X = gpm.sgp.inP[2]
+    Y = gpm.sgp.inP[3]
+
+    ker = gpm.sgp.kernel
+    
+    Kff = kernelmatrix(ker, X)
+    Kfu = kernelmatrix(ker, X, Z)
+    Kuu = kernelmatrix(ker, Z)
+    Qff = Kfu * ( Kuu \ Kfu' )
+
+    noise = gpm.sgp.σ_n
+    method = gpm.sgp.method
+    Λ = _computelambda(Kff, Qff, noise, method)
+    Σ = _computesigma(Kuu, Kfu, Λ)
+
+    var = diag(Kx * (Σ \ Kx'))
+    # var = diag(Kx*Kuu*Kx')
+
+    return (m .± var)
+end
+
 
 ####
 # functions to facilitate efficient computation, as per Q-C&R
 function computeKinvU(sgp::SparseGP)
-    return _computeKinvU(sgp, sgp.inP)
+    return _computeKinvU(sgp, sgp.inP, sgp.method)
 end
 
-function _computeKinvU(sgp::SparseGP, indP::NTuple{2, Array{<:Array{<:Real,1},1}}) 
+function _computeKinvU(sgp::SparseGP, indP::NTuple{2, Array{<:Array{<:Real,1},1}}, method::M) where M<:SparseGPMethod 
     Z = indP[1]
     U = indP[2]
     σ_n = sgp.σ_n
@@ -85,10 +118,11 @@ function _computeKinvU(sgp::SparseGP, indP::NTuple{2, Array{<:Array{<:Real,1},1}
     vU = permutedims(vU)
     ker = sgp.kernel
     K = kernelmatrix(ker, Z) + σ_n * I
-    return K \ vU
+    KinvU = K \ vU
+    return KinvU
 end
 
-function _computeKinvU(sgp::SparseGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}}) 
+function _computeKinvU(sgp::SparseGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}}, method::M) where M <: SparseGPMethod 
     Z = indP[1]
     X = indP[2]
     Y = indP[3]
@@ -103,13 +137,25 @@ function _computeKinvU(sgp::SparseGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}
     Qff = Kfu * ( Kuu \ Kfu' )
     
     noise = sgp.σ_n
-    Λ = diagm(diag( Kff - Qff) .+ noise)
+    Λ = _computelambda(Kff, Qff, noise, method)
     
-    Σ = Kuu + Kfu' * (Λ \ Kfu)
+    Σ = _computesigma(Kuu, Kfu, Λ)
     
     vY = reshape(reduce(vcat, Y), :, length(X)*length(X[1]))
     vY = permutedims(vY)
     return Σ \ (Kfu' * (Λ \ vY))
+end
+
+function _computesigma(Kuu, Kfu, Λ)
+    return Kuu + Kfu' * (Λ \ Kfu)
+end
+
+function _computelambda(Kff, Qff, noise, method::VLB)
+    return noise * I
+end
+
+function _computelambda(Kff, Qff, noise, method::FITC)
+    return Diagonal(diag( Kff - Qff) .+ noise)
 end
 
 #####

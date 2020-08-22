@@ -8,6 +8,7 @@ using LinearAlgebra
 using Optim
 using QuadGK
 using KernelFunctions
+using Measurements 
 
 include("kernelfuns.jl")
 include("types.jl")
