@@ -66,11 +66,19 @@ struct trajectory
     t::Array{Float64,1}
     u::Array{Array{Float64,1},1}
 
-    function trajectory(sol, dt = 0.05)
-        t = collect(sol.t[1]:dt:sol.t[end])
-        u = sol(t).u 
-        new(t,u)
-    end
+    # function trajectory(sol, dt = 0.05)
+    #     t = collect(sol.t[1]:dt:sol.t[end])
+    #     u = sol(t).u 
+    #     new(t,u)
+    # end
+end
+
+function trajectory(sol, datatsteps, noise)
+    u = sol(datatsteps).u
+    noiselvl = 0.095
+    u .+= noise * 2*(rand(size(ode_data)...) .- 0.5)
+
+    trajectory(datatsteps, u)
 end
 
 

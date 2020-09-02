@@ -54,22 +54,24 @@ dY = gradient_observations(gpmodel)
 
 Trains a kernel, builds a GPmodel, and then computes output ands the gradients at the extended data points.
 """
-function gradient_data(traj, kernel::K = pskernel(ones(2)); show_opt = false) where K<:Kernel
+function gradient_data(traj, kernel::K = pskernel(ones(2)); σ_n = 1e-6, show_opt = false) where K<:Kernel
     X = [ [x] for x in traj.t]
     Y = [ y for y in traj.u]
     
-    traj_sgp = SparseGP(kernel, X, Y)
+    traj_sgp = SparseGP(kernel, X, Y; σ_n = σ_n)
     (dY,_) = _gradient_data(traj_sgp; show_opt)
     return (X=Y, Y=dY)
 end
 
-function gradient_data(traj, eX, kernel::K = pskernel(ones(2)); show_opt = false) where K<:Kernel
+function gradient_data(traj, eX, kernel::K = pskernel(ones(2)); σ_n = 1e-6, show_opt = false) where K<:Kernel
     X = [ [x] for x in traj.t]
     Y = [ y for y in traj.u]
+    Z = [ [x] for x in eX]
     
-    traj_sgp = SparseGP(kernel, eX, X, Y)
+    traj_sgp = SparseGP(kernel, Z, X, Y; σ_n = σ_n)
     (deY, gpmodel) = _gradient_data(traj_sgp; show_opt)
-    eY = gpmodel.(eX)
+
+    eY = gpmodel.(Z)
     return (X=eY, Y=deY)
 end
 

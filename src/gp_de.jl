@@ -68,7 +68,7 @@ end
 function (gpm::GPmodel)(x)
     Kx = gpm.sgp(gpm.sgp.trafo(x))
     μ = gpm.sgp.mean
-    return (μ(x) .+ (Kx * gpm.KinvU))[:]
+    return (μ(x) .+ (Kx * gpm.KinvU)[:])
 end
 
 function (gpm::GPmodel)(xv::MS) where MS  <: Array{<:Measurement{<:Real}, 1}
