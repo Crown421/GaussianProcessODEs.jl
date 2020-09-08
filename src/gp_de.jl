@@ -57,12 +57,13 @@ end
 struct GPmodel{SGP <: SparseGP, T<:Real}
     sgp::SGP
     KinvU::Array{T,2}
+    Σ::Array{T,2}
 end 
 
 # maybe with data
 function GPmodel(sgp::SparseGP)
-    KiU = computeKinvU(sgp)
-    GPmodel(sgp, KiU)
+    KiU, Σ = computeKinvU(sgp)
+    GPmodel(sgp, KiU, Σ)
 end
 
 function (gpm::GPmodel)(x)
@@ -77,21 +78,7 @@ function (gpm::GPmodel)(xv::MS) where MS  <: Array{<:Measurement{<:Real}, 1}
     μ = gpm.sgp.mean
     m =  (μ(x) .+ (Kx * gpm.KinvU))[:]
     
-    Z = gpm.sgp.inP[1]
-    X = gpm.sgp.inP[2]
-    Y = gpm.sgp.inP[3]
-
-    ker = gpm.sgp.kernel
-    
-    Kff = kernelmatrix(ker, X)
-    Kfu = kernelmatrix(ker, X, Z)
-    Kuu = kernelmatrix(ker, Z)
-    Qff = Kfu * ( Kuu \ Kfu' )
-
-    noise = gpm.sgp.σ_n
-    method = gpm.sgp.method
-    Λ = _computelambda(Kff, Qff, noise, method)
-    Σ = _computesigma(Kuu, Kfu, Λ)
+    Σ = gpm.Σ
 
     var = diag(Kx * (Σ \ Kx'))
     # var = diag(Kx*Kuu*Kx')
@@ -119,7 +106,7 @@ function _computeKinvU(sgp::SparseGP, indP::NTuple{2, Array{<:Array{<:Real,1},1}
     ker = sgp.kernel
     K = kernelmatrix(ker, Z) + σ_n * I
     KinvU = K \ vU
-    return KinvU
+    return (KinvU, K) 
 end
 
 function _computeKinvU(sgp::SparseGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}}, method::M) where M <: SparseGPMethod 
@@ -143,7 +130,8 @@ function _computeKinvU(sgp::SparseGP, indP::NTuple{3, Array{<:Array{<:Real,1},1}
     
     vY = reshape(reduce(vcat, Y), :, length(X)*length(X[1]))
     vY = permutedims(vY)
-    return Σ \ (Kfu' * (Λ \ vY))
+    KinvU = Σ \ (Kfu' * (Λ \ vY))
+    return (KinvU, Σ)
 end
 
 function _computesigma(Kuu, Kfu, Λ)
