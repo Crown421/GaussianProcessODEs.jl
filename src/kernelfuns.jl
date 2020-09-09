@@ -154,12 +154,16 @@ function KeplerKernel(ker::K; N::Int) where K
     KeplerKernel{K, typeof(gkparams)}(ker, gkparams)
 end
 
+function KeplerKernel(ker::K) where K
+    gkparams = nothing
+    KeplerKernel{K, typeof(gkparams)}(ker, gkparams)
+end
+
 # group action
 keplerrot(phi, x) = vcat(rot(phi)*x[1:2], rot(phi)*x[3:4])
 
 # evaluation
-function (rk::KeplerKernel)(z1, z2)
-    gkp = rk.gkparams 
+function (rk::KeplerKernel)(z1, z2, gkp = rk.gkparams)
     ker = rk.kernel
 
     base = map(x -> ker(z1, keplerrot(x, z2) ), gkp.x) .* gkp.weights 
@@ -168,6 +172,21 @@ function (rk::KeplerKernel)(z1, z2)
         sinterm = 0.
     else
         sinterm = sum(base .* sin.(gkp.x) )
+    end
+    return [costerm -sinterm 0 0;
+        sinterm costerm 0 0;
+        0 0 costerm -sinterm;
+        0 0 sinterm costerm]
+end
+
+function (rk::KeplerKernel)(z1, z2, gkp::Nothing = rk.gkparams)
+    ker = rk.kernel
+
+    costerm, _ = quadgk(phi -> ker(z1, keplerrot(phi, z2) )* cos(phi), 0, 2*pi, rtol = 1e-8)
+    if z1 == z2
+        sinterm = 0.
+    else
+        sinterm, _ = quadgk(phi -> ker(z1, keplerrot(phi, z2) )* sin(phi), 0, 2*pi, rtol = 1e-8)
     end
     return [costerm -sinterm 0 0;
         sinterm costerm 0 0;
