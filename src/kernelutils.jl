@@ -6,7 +6,7 @@ export getparam
 # simple constructor for a parametric scalar kernel
 ###
 function pskernel(w, ker::K = SqExponentialKernel()) where K <: Kernel
-    l = 1/sqrt(2.0) ./ w[2:end]
+    l = 1 ./ w[2:end]
     w[1]*TransformedKernel(ker,ARDTransform(l))
 end
 
@@ -32,7 +32,7 @@ end
 # should include a check that w is as long as the current parametera
 function (ker::TransformedKernel)(w)
     # not sure I need this, (eventually) just used for optimization
-    l = 1/sqrt(2.0) ./ w 
+    l = 1 ./ w 
 #     l = w
     typeof(ker)(ker.kernel, typeof(ker.transform)(l))
 end
@@ -170,24 +170,25 @@ function computeK(a, kernelT)
     computeK(a, a, kernelT)
 end
 
-function Kx(x, Z, ker::T) where T <: scalarkernel
-    Id = Matrix{Float64}(LinearAlgebra.I, length(x), length(x))
-    scalars = kernelfunctionf.(Ref(x), Z, Ref(ker))
-    (kron(scalars', Id))
-end
+# TODO might be obsolete
+# function Kx(x, Z, ker::T) where T <: scalarkernel
+#     Id = Matrix{Float64}(LinearAlgebra.I, length(x), length(x))
+#     scalars = kernelfunctionf.(Ref(x), Z, Ref(ker))
+#     (kron(scalars', Id))
+# end
 
-function Kx(x, Z, ker::T) where T <: matrixkernel
-    computeK([x], Z, ker)
-end
+# function Kx(x, Z, ker::T) where T <: matrixkernel
+#     computeK([x], Z, ker)
+# end
 
 
-function dKx(x, Z, ker::T) where T <: scalarkernel
-    Id = Matrix{Float64}(LinearAlgebra.I, length(x), length(x))
+# function dKx(x, Z, ker::T) where T <: scalarkernel
+#     Id = Matrix{Float64}(LinearAlgebra.I, length(x), length(x))
 
-    tmp = npODEs.derivativekernelfunctionf.(Ref(x), Z, Ref(ker))
-    tmp = reduce(hcat, tmp)
-    (kron(tmp, Id))
-end
+#     tmp = npODEs.derivativekernelfunctionf.(Ref(x), Z, Ref(ker))
+#     tmp = reduce(hcat, tmp)
+#     (kron(tmp, Id))
+# end
 
 
 ###

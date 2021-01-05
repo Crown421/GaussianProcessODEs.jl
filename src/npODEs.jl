@@ -20,6 +20,7 @@ include("opt.jl")
 include("base.jl")
 include("problems.jl")
 include("utils.jl")
+include("hamiltonian.jl")
 # include("visualization.jl")
 
 end # module
