@@ -1,4 +1,5 @@
 export crotinvKernel, Kx
+export dKernel, dcrotinvKernel
 
 # TODO: combine with other group action (currently f(phi,x) not rot(phi)*x)
 function Krot(phi) 
@@ -26,6 +27,14 @@ function (crker::crotinvKernel)(x1::Array{T,1},x2::Array{T,1}) where T <: Real
     
     rx1 = Krot.(phis) .* [x1]
     rx2 = Krot.(phis) .* [x2]
+    
+    return crker(rx1, rx2)
+end
+
+function (crker::crotinvKernel)(x1::Array{T,1},rx2::Array{Array{T,1},1}) where T <: Real
+    phis = crker.gkparams.x
+    
+    rx1 = Krot.(phis) .* [x1]
     
     return crker(rx1, rx2)
 end
@@ -77,8 +86,8 @@ function (Kx::Kx)(x)
     ker = Kx.rker.kernel
 #     iterIdx = Iterators.product(1:length(w), 1:length(w))
     
-    phis = Kx.rker.gkparams.x
-    rx = Krot.(phis) .* [x]
+    # phis = Kx.rker.gkparams.x
+    # rx = Krot.(phis) .* [x]
     
     D = length(ker(x,x))
     
@@ -89,7 +98,7 @@ function (Kx::Kx)(x)
 #     Threads.@threads for i in 1:N
     for i in 1:N
 #         tmp = mapreduce(iI -> w[iI[1]] * ker(rx[iI[1]], rZ[i][iI[2]]) * w[iI[2]], + , iterIdx)
-        tmp = Kx.rker(rx, rZ[i])
+        tmp = Kx.rker(x, rZ[i])
         for (j, val) in enumerate(tmp)
             K[j,i] = val
         end
@@ -99,18 +108,52 @@ function (Kx::Kx)(x)
 end
 
 
+# some extra stuff
+function (mker::crotinvKernel)(w::Array{T, 1}) where {T <: Real}
+    typeof(mker)(mker.kernel(w), mker.gkparams)
+end
 
-struct d2crotinvKernel{K <: KernelFunctions.Kernel, GKP }  <: npODEs.MatrixKernel
+function (mker::crotinvKernel)(x1, x2)
+    typeof(mker)(mker.kernel(w), mker.gkparams)
+end
+
+import KernelFunctions: kernelmatrix
+function kernelmatrix(ker::crotinvKernel, X)
+    tmpKx = Kx(ker, X)  
+    return tmpKx()
+end
+
+
+####################################################
+### The derivative kernels
+## The base kernel
+struct dKernel{dK} <: KernelFunctions.Kernel
+    dkernel::dK
+end
+
+# constructor
+function dKernel(ker::K) where K <: KernelFunctions.Kernel
+    dker(x1,x2) = gradient(x1->ker(x1,x2), x1)
+    dKernel{typeof(dker)}(dker)
+end
+
+function (dker::dKernel)(x1,x2)
+    dker.dkernel(x1,x2)[1]
+end
+
+
+## the invariant derivative kernel 
+struct dcrotinvKernel{K <: KernelFunctions.Kernel, GKP }  <: npODEs.MatrixKernel
     kernel::K
     gkparams::GKP
 end
 
-function d2crotinvKernel(ker::K; N::Int) where K <: dKernel
+function dcrotinvKernel(ker::K; N::Int) where K <: dKernel
     gkparams = NamedTuple{(:x, :weights)}(gauss(N, 0, 2pi))
-    d2crotinvKernel{K, typeof(gkparams)}(ker, gkparams)
+    dcrotinvKernel{K, typeof(gkparams)}(ker, gkparams)
 end
 
-function (crker::d2crotinvKernel)(x1::Array{T,1},x2::Array{T,1}) where T <: Real
+function (crker::dcrotinvKernel)(x1::Array{T,1},x2::Array{T,1}) where T <: Real
     phis = crker.gkparams.x
     R = npODEs.Krot.(phis)
     rx1 = R .* [x1]
@@ -118,7 +161,14 @@ function (crker::d2crotinvKernel)(x1::Array{T,1},x2::Array{T,1}) where T <: Real
     return crker(R, rx1, rx2)
 end
 
-function (crker::d2crotinvKernel)(R, rx1::Array{Array{T,1},1}, rx2::Array{Array{T,1},1}) where T <: Real
+function (crker::dcrotinvKernel)(x1::Array{T,1},rx2::Array{Array{T,1},1}) where T <: Real
+    phis = crker.gkparams.x
+    R = npODEs.Krot.(phis)
+    rx1 = R .* [x1]
+    return crker(R, rx1, rx2)
+end
+
+function (crker::dcrotinvKernel)(R, rx1::Array{Array{T,1},1}, rx2::Array{Array{T,1},1}) where T <: Real
     w = crker.gkparams.weights
     dker = crker.kernel
     iterIdx = Iterators.product(1:length(w), 1:length(w))
