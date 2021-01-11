@@ -143,14 +143,16 @@ end
 
 
 ## the invariant derivative kernel 
-struct dcrotinvKernel{K <: KernelFunctions.Kernel, GKP }  <: npODEs.MatrixKernel
+struct dcrotinvKernel{K <: KernelFunctions.Kernel, GKP, DI }  <: npODEs.MatrixKernel
     kernel::K
     gkparams::GKP
+    derividx::DI
 end
+# TODO: possibly make things a little more efficient by only computing part of the kernel
 
-function dcrotinvKernel(ker::K; N::Int) where K <: dKernel
+function dcrotinvKernel(ker::K; N::Int, di=:) where K <: dKernel
     gkparams = NamedTuple{(:x, :weights)}(gauss(N, 0, 2pi))
-    dcrotinvKernel{K, typeof(gkparams)}(ker, gkparams)
+    dcrotinvKernel{K, typeof(gkparams), typeof(di)}(ker, gkparams, di)
 end
 
 function (crker::dcrotinvKernel)(x1::Array{T,1},x2::Array{T,1}) where T <: Real
@@ -168,11 +170,16 @@ function (crker::dcrotinvKernel)(x1::Array{T,1},rx2::Array{Array{T,1},1}) where 
     return crker(R, rx1, rx2)
 end
 
+function _rh(R, di)
+    transpose(R)[di, :]
+end
+
 function (crker::dcrotinvKernel)(R, rx1::Array{Array{T,1},1}, rx2::Array{Array{T,1},1}) where T <: Real
     w = crker.gkparams.weights
     dker = crker.kernel
+    di = crker.derividx
     iterIdx = Iterators.product(1:length(w), 1:length(w))
 #     
-    tmp = mapreduce(iI -> w[iI[1]] * R[iI[1]]' * dker(rx1[iI[1]], rx2[iI[2]]) * w[iI[2]], + , iterIdx)
+    tmp = mapreduce(iI -> w[iI[1]] * _rh(R[iI[1]], di) * dker(rx1[iI[1]], rx2[iI[2]]) * w[iI[2]], + , iterIdx)
     return tmp
 end
