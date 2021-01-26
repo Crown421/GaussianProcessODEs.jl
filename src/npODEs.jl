@@ -9,6 +9,7 @@ using Optim
 using QuadGK
 using KernelFunctions
 using Measurements 
+using ThreadsX
 
 include("kernelfuns.jl")
 include("types.jl")

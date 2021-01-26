@@ -1,6 +1,11 @@
 export SparseGP, GPmodel, GPODE
+export samplegp, gpmeanvar
 
 # https://github.com/SciML/DiffEqFlux.jl/blob/c59971fd4d3ee84aff39f88b7073d7e8cf51c34c/src/neural_de.jl#L38
+
+abstract type TrajType end
+struct SampleTraj <: TrajType end
+struct MeanTraj <: TrajType end
 
 abstract type SparseGPMethod end
 struct FITC <: SparseGPMethod end
@@ -66,10 +71,23 @@ function GPmodel(sgp::SparseGP)
     GPmodel(sgp, KiU, Σ)
 end
 
-function (gpm::GPmodel)(x)
+function (gpm::GPmodel)(x, traj::MeanTraj = MeanTraj())
     Kx = gpm.sgp(gpm.sgp.trafo(x))
     μ = gpm.sgp.mean
     return (μ(x) .+ (Kx * gpm.KinvU)[:])
+end
+
+function (gpm::GPmodel)(x, traj::SampleTraj)
+    Kx = gpm.sgp(gpm.sgp.trafo(x))
+    μ = gpm.sgp.mean
+    m =  (μ(x) .+ (Kx * gpm.KinvU))[:]
+    
+    Σ = gpm.Σ
+
+    std = sqrt.(diag(Kx * (Σ \ Kx')))
+    # var = diag(Kx*Kuu*Kx')
+    s = randn(length(x)) .* std
+    return (m .+ s)
 end
 
 function (gpm::GPmodel)(xv::MS) where MS  <: Array{<:Measurement{<:Real}, 1}
@@ -80,7 +98,7 @@ function (gpm::GPmodel)(xv::MS) where MS  <: Array{<:Measurement{<:Real}, 1}
     
     Σ = gpm.Σ
 
-    var = diag(Kx * (Σ \ Kx'))
+    var = sqrt.(diag(Kx * (Σ \ Kx')))
     # var = diag(Kx*Kuu*Kx')
 
     return (m .± var)
@@ -150,28 +168,52 @@ end
 # complete GPODE construct
 #####
 basic_tgrad(u,p,t) = zero(u)
-struct GPODE{M<:GPmodel,T,A,K} #<: NeuralDELayer
+struct GPODE{M<:GPmodel,T,A,K,TT<: TrajType} #<: NeuralDELayer
     model::M
     # p::P, maybe one day
     tspan::T
     args::A
     kwargs::K
+    trajtype::TT
 
-    function GPODE(model::GPM,tspan,args...; kwargs...) where GPM <: GPmodel
-        new{typeof(model),typeof(tspan),typeof(args),typeof(kwargs)}(
-            model,tspan,args,kwargs)
+    function GPODE(model::GPM,tspan,args...; sample = false, kwargs...) where GPM <: GPmodel
+        tt = sample ? SampleTraj() : MeanTraj()
+        new{typeof(model),typeof(tspan),typeof(args),typeof(kwargs), typeof(tt)}(
+            model,tspan,args,kwargs,tt)
     end
 end
 
-function GPODE(sgp::SGP,tspan,args...;kwargs...) where SGP <: SparseGP
+function GPODE(sgp::SGP,tspan,args...;sample::Bool=false, kwargs...) where SGP <: SparseGP
     gpm = GPmodel(sgp)
-    return GPODE(gpm,tspan,args...,kwargs...)
+    return GPODE(gpm,tspan,args..., sample = sample, kwargs...)
 end
 
-function (gp::GPODE)(x)
-    dudt_(u,p,t) = gp.model(u)
+function (gp::GPODE)(x0)
+    dudt_(u,p,t) = gp.model(u, gp.trajtype)
     ff = ODEFunction{false}(dudt_,tgrad=basic_tgrad)
-    prob = ODEProblem{false}(ff,x,getfield(gp,:tspan))
+    prob = ODEProblem{false}(ff,x0,getfield(gp,:tspan))
     solve(prob,gp.args...;gp.kwargs...)
 end
 
+
+function samplegp(x, gp, n)
+    #     dudt_(u,p,t) = gp.model(u, npODEs.SampleTraj())
+    #     ff = ODEFunction{false}(dudt_,tgrad=npODEs.basic_tgrad)
+    #     prob = ODEProblem{false}(ff,x,getfield(gp,:tspan))
+    #     ensemble = EnsembleProblem(prob)
+    #     solve(ensemble, gp.args..., EnsembleThreads(); trajectories = n, gp.kwargs...)
+        
+        sample_gpODE = GPODE(gp.model, gp.tspan, 
+            gp.args...; sample = true, gp.kwargs...);
+        t = @elapsed sols = ThreadsX.collect(sample_gpODE(x) for i in 1:n)
+        EnsembleSolution(sols, t, true)
+end
+
+
+using DifferentialEquations.EnsembleAnalysis
+function gpmeanvar(samplesols, ts)
+    meanvar = timepoint_meanvar(samplesols,ts)
+    mtrajs = meanvar[1]
+    stdtrajs = sqrt.(meanvar[2])
+    return mtrajs, stdtrajs
+end
