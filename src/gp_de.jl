@@ -170,7 +170,7 @@ end
 basic_tgrad(u,p,t) = zero(u)
 struct GPODE{M<:GPmodel,T,A,K,TT<: TrajType} #<: NeuralDELayer
     model::M
-    # p::P, maybe one day
+    # p::P, parameters, maybe one day
     tspan::T
     args::A
     kwargs::K
@@ -196,7 +196,7 @@ function (gp::GPODE)(x0)
 end
 
 
-function samplegp(x, gp, n)
+function samplegp(x, gp, n, args = gp.args; kwargs...)
     #     dudt_(u,p,t) = gp.model(u, npODEs.SampleTraj())
     #     ff = ODEFunction{false}(dudt_,tgrad=npODEs.basic_tgrad)
     #     prob = ODEProblem{false}(ff,x,getfield(gp,:tspan))
@@ -204,7 +204,7 @@ function samplegp(x, gp, n)
     #     solve(ensemble, gp.args..., EnsembleThreads(); trajectories = n, gp.kwargs...)
         
         sample_gpODE = GPODE(gp.model, gp.tspan, 
-            gp.args...; sample = true, gp.kwargs...);
+            args...; sample = true, kwargs...);
         t = @elapsed sols = ThreadsX.collect(sample_gpODE(x) for i in 1:n)
         EnsembleSolution(sols, t, true)
 end

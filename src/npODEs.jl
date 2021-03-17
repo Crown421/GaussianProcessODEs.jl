@@ -22,6 +22,7 @@ include("base.jl")
 include("problems.jl")
 include("utils.jl")
 include("hamiltonian.jl")
+include("integration.jl")
 # include("visualization.jl")
 
 end # module
