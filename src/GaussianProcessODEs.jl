@@ -1,4 +1,4 @@
-module npODEs
+module GaussianProcessODEs
 
 using DifferentialEquations
 using Zygote
