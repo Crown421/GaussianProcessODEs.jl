@@ -1,4 +1,4 @@
-name = "npODEs"
+name = "GaussianProcessODEs"
 uuid = "140fb952-27fb-48f0-a923-9fc0a82a2f4d"
 authors = ["Steffen <steffen@robots.ox.ac.uk>"]
 version = "0.1.0"
