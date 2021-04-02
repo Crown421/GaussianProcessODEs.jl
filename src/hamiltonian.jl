@@ -9,7 +9,7 @@ function Krot(phi)
 end
 
 ### invariant Kernel
-struct crotinvKernel{K <: KernelFunctions.Kernel, GKP }  <: npODEs.MatrixKernel
+struct crotinvKernel{K <: KernelFunctions.Kernel, GKP }  <: MatrixKernel
     kernel::K
     gkparams::GKP
 end
@@ -53,7 +53,7 @@ struct Kx{K, rZ}
     rotZ::rZ
 end
 
-function Kx(ker::K, Z) where K <: npODEs.MatrixKernel
+function Kx(ker::K, Z) where K <: MatrixKernel
     phis = ker.gkparams.x
     tmpRots = Krot.(phis)
     rotZ = [tmpRots .* [z] for z in Z]
@@ -143,7 +143,7 @@ end
 
 
 ## the invariant derivative kernel 
-struct dcrotinvKernel{K <: KernelFunctions.Kernel, GKP, DI }  <: npODEs.MatrixKernel
+struct dcrotinvKernel{K <: KernelFunctions.Kernel, GKP, DI }  <: MatrixKernel
     kernel::K
     gkparams::GKP
     derividx::DI
@@ -157,7 +157,7 @@ end
 
 function (crker::dcrotinvKernel)(x1::Array{T,1},x2::Array{T,1}) where T <: Real
     phis = crker.gkparams.x
-    R = npODEs.Krot.(phis)
+    R = GaussianProcessODEs.Krot.(phis)
     rx1 = R .* [x1]
     rx2 = R .* [x2]
     return crker(R, rx1, rx2)
@@ -165,7 +165,7 @@ end
 
 function (crker::dcrotinvKernel)(x1::Array{T,1},rx2::Array{Array{T,1},1}) where T <: Real
     phis = crker.gkparams.x
-    R = npODEs.Krot.(phis)
+    R = GaussianProcessODEs.Krot.(phis)
     rx1 = R .* [x1]
     return crker(R, rx1, rx2)
 end

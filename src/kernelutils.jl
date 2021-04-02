@@ -145,7 +145,7 @@ function computeK(Z, kernelT::S) where {S <:matrixkernel }
 end
 
 function computeK(a, b, kernelT::S) where {S <:matrixkernel }
-    tmp = [npODEs.kernelfunctionf(z1, z2, kernelT) for z1 in a, z2 in b]
+    tmp = [GaussianProcessODEs.kernelfunctionf(z1, z2, kernelT) for z1 in a, z2 in b]
     K = blockreduce(tmp)
 end
 
@@ -157,7 +157,7 @@ function computeK(Z, kernelT::S) where {S <: scalarkernel}
 end
 
 function computeK(a, b, kernelT::S) where {S <: scalarkernel}
-    tmp = [npODEs.kernelfunctionf(z1, z2, kernelT) for z1 in a, z2 in b]
+    tmp = [GaussianProcessODEs.kernelfunctionf(z1, z2, kernelT) for z1 in a, z2 in b]
     x = a[1]
     Id = Matrix{Float64}(LinearAlgebra.I, length(x), length(x))
     kron(tmp, Id)
@@ -185,7 +185,7 @@ end
 # function dKx(x, Z, ker::T) where T <: scalarkernel
 #     Id = Matrix{Float64}(LinearAlgebra.I, length(x), length(x))
 
-#     tmp = npODEs.derivativekernelfunctionf.(Ref(x), Z, Ref(ker))
+#     tmp = GaussianProcessODEs.derivativekernelfunctionf.(Ref(x), Z, Ref(ker))
 #     tmp = reduce(hcat, tmp)
 #     (kron(tmp, Id))
 # end

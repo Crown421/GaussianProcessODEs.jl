@@ -43,7 +43,7 @@ end
 function (mker::uncoupledMKernel)(w::Array{<:Real, 1})
     K = mker.kernels
     
-    ls = length.(npODEs.getparam.(K))
+    ls = length.(GaussianProcessODEs.getparam.(K))
     endIdx = cumsum(ls)
     startIdx = endIdx .- (ls .- 1)
     ra = range.(startIdx, endIdx, step = 1)
@@ -239,7 +239,7 @@ end
 
 
 function rotexpIntegrand(phi, x1, x2, w)
-    npODEs.kernelfunctionf(x1, rot(phi)* x2, expKernel(w))
+    GaussianProcessODEs.kernelfunctionf(x1, rot(phi)* x2, expKernel(w))
 end
 
 function kernelfunctionf(z1, z2, ker::rotexpKernel)
@@ -274,7 +274,7 @@ end
 
 function keplrotexpIntegrand(phi, x1, x2, w)
     x2r = vcat(rot(phi)*x2[1:2], rot(phi)*x2[3:4])
-    npODEs.kernelfunctionf(x1, x2r, expKernel(w))
+    GaussianProcessODEs.kernelfunctionf(x1, x2r, expKernel(w))
 end
 function kernelfunctionf(z1, z2, ker::keplerKernel)
     d = length(z1)

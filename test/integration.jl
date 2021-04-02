@@ -1,4 +1,4 @@
-using npODEs
+using GaussianProcessODEs
 using Test
 using LinearAlgebra
 using KernelFunctions

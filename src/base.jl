@@ -47,7 +47,7 @@ end
 # end
 
 # function variance(x, npODE)
-#     Kxe = npODEs.Kx(x, npODE)
+#     Kxe = GaussianProcessODEs.Kx(x, npODE)
 #     I - Kxe' * (npODE.kernel.Kchol \ Kxe)
 # end
     

@@ -1,13 +1,13 @@
-using npODEs
+using GaussianProcessODEs
 using Test
 using BenchmarkTools
 
 using KernelFunctions
 using QuadGK
 
-rot(phi) = npODEs.Krot(phi)
+rot(phi) = GaussianProcessODEs.Krot(phi)
 
-struct altrotinvKernel{K <: KernelFunctions.Kernel, GKP }  <: npODEs.MatrixKernel
+struct altrotinvKernel{K <: KernelFunctions.Kernel, GKP }  <: GaussianProcessODEs.MatrixKernel
     kernel::K
     gkparams::GKP
 end

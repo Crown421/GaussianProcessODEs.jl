@@ -197,8 +197,8 @@ end
 
 
 function samplegp(x, gp, n, args = gp.args; kwargs...)
-    #     dudt_(u,p,t) = gp.model(u, npODEs.SampleTraj())
-    #     ff = ODEFunction{false}(dudt_,tgrad=npODEs.basic_tgrad)
+    #     dudt_(u,p,t) = gp.model(u, GaussianProcessODEs.SampleTraj())
+    #     ff = ODEFunction{false}(dudt_,tgrad=GaussianProcessODEs.basic_tgrad)
     #     prob = ODEProblem{false}(ff,x,getfield(gp,:tspan))
     #     ensemble = EnsembleProblem(prob)
     #     solve(ensemble, gp.args..., EnsembleThreads(); trajectories = n, gp.kwargs...)
