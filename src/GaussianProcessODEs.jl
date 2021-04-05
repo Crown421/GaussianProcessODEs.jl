@@ -12,16 +12,13 @@ using Measurements
 using ThreadsX
 
 include("kernelfuns.jl")
-include("types.jl")
 include("kernelutils.jl")
 include("gp_de.jl")
 include("kernel_opt.jl")
 
-include("opt.jl")
 include("base.jl")
 include("problems.jl")
 include("utils.jl")
 include("hamiltonian.jl")
-include("integration.jl")
 
 end # module
