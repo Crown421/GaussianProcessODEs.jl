@@ -3,7 +3,6 @@ module GaussianProcessODEs
 using DifferentialEquations
 using Zygote
 using Distances
-using VectorizedRoutines: pairwise
 using LinearAlgebra
 using Optim
 using QuadGK
