@@ -18,7 +18,7 @@ struct Vanilla <: SparseGPMethod end
 struct SparseGP{K, T<:Real, N, A<: NTuple{N, Array{<:Array{<:Real,1},1}}, M<:SparseGPMethod}
     kernel::K
     σ_n::T
-    inP::A
+    inP::A # inducing points
     mean::Function
     trafo::Function
     method::M
@@ -90,8 +90,11 @@ function (gpm::GPmodel)(x, traj::SampleTraj)
     return (m .+ s)
 end
 
+# this can almost certainly be removed. might be interesting for comparison purposes
 function (gpm::GPmodel)(xv::MS) where MS  <: Array{<:Measurement{<:Real}, 1}
     x = getfield.(xv, :val)
+    Sigma = diagm(getfield.(xv, err))
+    
     Kx = gpm.sgp(gpm.sgp.trafo(x))
     μ = gpm.sgp.mean
     m =  (μ(x) .+ (Kx * gpm.KinvU))[:]
